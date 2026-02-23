@@ -1,0 +1,197 @@
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "heading",
+      "attrs": { "level": 1 },
+      "content": [{ "type": "text", "text": "🚀 Guia Completo de Funcionalidades do DocEditor" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Bem-vindo ao " },
+        { "type": "text", "marks": [{ "type": "bold" }], "text": "DocEditor" },
+        { "type": "text", "text": ", sua ferramenta definitiva para criação e gerenciamento de documentos e planilhas com uma experiência premium e intuitiva. Este documento demonstra a nova visualização em " },
+        { "type": "text", "marks": [{ "type": "bold" }, { "type": "italic" }], "text": "Modo Página" },
+        { "type": "text", "text": " e suporte a imagens de alta qualidade." }
+      ]
+    },
+    {
+      "type": "image",
+      "attrs": {
+        "src": "https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=1000&auto=format&fit=crop",
+        "alt": "Laptop on a desk",
+        "title": "Produtividade com DocEditor"
+      }
+    },
+    {
+      "type": "horizontalRule"
+    },
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [{ "type": "text", "text": "1. Formatação de Texto e Estilos" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [
+        { "type": "text", "text": "Oferecemos uma ampla gama de opções de formatação para tornar seus documentos visualmente atraentes. Abaixo você vê exemplos de cores, destaques e alinhamentos aplicados." }
+      ]
+    },
+    {
+      "type": "bulletList",
+      "content": [
+        {
+          "type": "listItem",
+          "content": [{
+            "type": "paragraph",
+            "content": [
+              { "type": "text", "marks": [{ "type": "bold" }], "text": "Negrito" },
+              { "type": "text", "text": ", " },
+              { "type": "text", "marks": [{ "type": "italic" }], "text": "Itálico" },
+              { "type": "text", "text": ", " },
+              { "type": "text", "marks": [{ "type": "underline" }], "text": "Sublinhado" },
+              { "type": "text", "text": " e " },
+              { "type": "text", "marks": [{ "type": "strike" }], "text": "Tachado" }
+            ]
+          }]
+        },
+        {
+          "type": "listItem",
+          "content": [{
+            "type": "paragraph",
+            "content": [
+              { "type": "text", "text": "CORES: " },
+              { "type": "text", "marks": [{ "type": "textStyle", "attrs": { "color": "#ef4444" } }], "text": "Texto em Vermelho" },
+              { "type": "text", "text": ", " },
+              { "type": "text", "marks": [{ "type": "textStyle", "attrs": { "color": "#22c55e" } }], "text": "Verde" },
+              { "type": "text", "text": ", " },
+              { "type": "text", "marks": [{ "type": "textStyle", "attrs": { "color": "#6366f1" } }], "text": "Índigo" }
+            ]
+          }]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "attrs": { "textAlign": "center" },
+      "content": [{ "type": "text", "marks": [{ "type": "italic" }], "text": "Este parágrafo está centralizado para dar ênfase ao conteúdo." }]
+    },
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [{ "type": "text", "text": "2. Organização e Estrutura" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Para documentos longos, a organização é fundamental. Nossa nova visualização A4 permite que você veja exatamente onde as páginas começam e terminam." }]
+    },
+    {
+      "type": "taskList",
+      "content": [
+        { "type": "taskItem", "attrs": { "checked": true }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Implementar visualização em páginas" }] }] },
+        { "type": "taskItem", "attrs": { "checked": true }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Adicionar suporte a imagens reais" }] }] },
+        { "type": "taskItem", "attrs": { "checked": false }, "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Corrigir exportação de tabelas no Word" }] }] }
+      ]
+    },
+    {
+      "type": "image",
+      "attrs": {
+        "src": "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?q=80&w=1000&auto=format&fit=crop",
+        "alt": "Person typing on laptop",
+        "title": "Foco na escrita"
+      }
+    },
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [{ "type": "text", "text": "3. Elementos Avançados e Tabelas" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Aqui está uma tabela detalhando os próximos marcos de desenvolvimento:" }]
+    },
+    {
+      "type": "table",
+      "content": [
+        {
+          "type": "tableRow",
+          "content": [
+            { "type": "tableHeader", "content": [{ "type": "paragraph", "content": [{ "type": "text", "marks": [{ "type": "bold" }], "text": "Funcionalidade" }] }] },
+            { "type": "tableHeader", "content": [{ "type": "paragraph", "content": [{ "type": "text", "marks": [{ "type": "bold" }], "text": "Desenvolvimento" }] }] },
+            { "type": "tableHeader", "content": [{ "type": "paragraph", "content": [{ "type": "text", "marks": [{ "type": "bold" }], "text": "Previsão" }] }] }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "content": [
+            { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Modo Colaborativo" }] }] },
+            { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "marks": [{ "type": "textStyle", "attrs": { "color": "#f97316" } }], "text": "Em Planejamento" }] }] },
+            { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Q3 2026" }] }] }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "content": [
+            { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Histórico de Versões" }] }] },
+            { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "marks": [{ "type": "textStyle", "attrs": { "color": "#22c55e" } }], "text": "Concluído" }] }] },
+            { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Disponível" }] }] }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "attrs": { "level": 2 },
+      "content": [{ "type": "text", "text": "4. Conteúdo Extenso para Paginação" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Abaixo, incluímos blocos de texto para garantir que o documento se estenda por múltiplas páginas, permitindo a validação da quebra de página visual e da exportação em PDF." }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum." }]
+    },
+    {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis, id tincidunt sapien risus a quam. Maecenas fermentum consequat mi. Donec fermentum. Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet nec, commodo eget, consequat quis, neque. Aliquam faucibus, elit ut dictum aliquet, felis nisl adipiscing sapien, sed malesuada diam lacus eget erat. Cras mollis scelerisque nunc. Nullam arcu. Aliquam consequat." }]
+    },
+    {
+        "type": "heading",
+        "attrs": { "level": 2 },
+        "content": [{ "type": "text", "text": "5. Código e Estilo" }]
+    },
+    {
+      "type": "codeBlock",
+      "attrs": { "language": "javascript" },
+      "content": [{ "type": "text", "text": "const exportDoc = async (id) => {\n  const doc = await getDocument(id);\n  const pdf = await generatePdf(doc.content);\n  return pdf.download();\n};" }]
+    },
+    {
+      "type": "paragraph",
+      "content": [{ "type": "text", "text": "O DocEditor suporta realce de sintaxe nativo para diversas linguagens, facilitando a criação de documentação técnica diretamente na plataforma." }]
+    },
+    {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Praesent dapibus, neque id cursus faucibus, tortor neque egestas augua, eu vulputate magna eros eu erat. Aliquam erat volutpat. Nam dui mi, tincidunt quis, accumsan porttitor, facilisis luctus, metus. Phasellus ultrices nulla quis nibh. Quisque a lectus. Donec consectetuer ligula vulputate sem tristique cursus. Nam nulla quam, gravida non, commodo a, sodales sit amet, nisi. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas." }]
+    },
+    {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Repetindo parágrafos para volume adicional e teste de quebra de página. O DocEditor é projetado para lidar com documentos massivos sem perda de performance, mantendo a edição em tempo real suave e as exportações precisas. Cada elemento, desde o texto simples até tabelas aninhadas e blocos de código, é renderizado com precisão cirúrgica." }]
+    },
+    {
+        "type": "paragraph",
+        "content": [{ "type": "text", "text": "Mais conteúdo para preencher a terceira página. É essencial que o fluxo de texto seja natural e as quebras de página ocorram em locais lógicos. O modo de exportação PDF que estamos refinando garantirá que grandes tabelas ou blocos de código não sejam 'cortados' de forma deselegante, mantendo a integridade visual do seu trabalho profissional." } ]
+    },
+    {
+      "type": "horizontalRule"
+    },
+    {
+      "type": "paragraph",
+      "attrs": { "textAlign": "center" },
+      "content": [
+        { "type": "text", "text": "© 2026 DocEditor. Documento Gerado Automaticamente para Showcase." }
+      ]
+    }
+  ]
+}
