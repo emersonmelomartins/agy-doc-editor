@@ -4,7 +4,7 @@ import { DEMO_DOCUMENTS } from './demo-documents.ts';
 
 const STORAGE_KEY = 'doceditor_documents';
 const SEED_VERSION_KEY = 'doceditor_seed_version';
-const SEED_VERSION = 'v1';
+const SEED_VERSION = 'v2';
 
 export function ensureDemoDocumentsSeeded(): void {
   if (typeof window === 'undefined') return;
@@ -15,6 +15,13 @@ export function ensureDemoDocumentsSeeded(): void {
     docs = raw ? JSON.parse(raw) : [];
   } catch {
     docs = [];
+  }
+
+  const storedVersion = localStorage.getItem(SEED_VERSION_KEY);
+  const versionChanged = storedVersion !== SEED_VERSION;
+
+  if (versionChanged) {
+    docs = docs.filter((doc) => !doc.templateId);
   }
 
   const existingTemplateIds = new Set(docs.map((doc) => doc.templateId).filter(Boolean));
@@ -34,7 +41,7 @@ export function ensureDemoDocumentsSeeded(): void {
       templateId: seed.templateId ?? `seed-${idx + 1}`,
     }));
 
-  if (!missingDemoDocs.length && localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION) {
+  if (!missingDemoDocs.length && !versionChanged) {
     return;
   }
 

@@ -52,23 +52,13 @@
   min-height: var(--page-height);
   flex-shrink: 0;
   position: relative;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent var(--page-height),
-      rgba(31, 41, 55, 0.18) var(--page-height),
-      rgba(31, 41, 55, 0.18) calc(var(--page-height) + 1px),
-      transparent calc(var(--page-height) + 1px),
-      transparent calc(var(--page-height) + var(--page-gap))
-    ),
-    repeating-linear-gradient(
-      to bottom,
-      var(--bg-sheet) 0,
-      var(--bg-sheet) var(--page-height),
-      transparent var(--page-height),
-      transparent calc(var(--page-height) + var(--page-gap))
-    );
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--bg-sheet) 0,
+    var(--bg-sheet) var(--page-height),
+    transparent var(--page-height),
+    transparent calc(var(--page-height) + var(--page-gap))
+  );
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.04),
     0 10px 25px rgba(0, 0, 0, 0.16);
@@ -84,6 +74,20 @@
   position: relative;
   z-index: 2;
   transition: min-height 0.18s ease-out;
+  -webkit-mask-image: repeating-linear-gradient(
+    to bottom,
+    black 0,
+    black var(--page-height),
+    transparent var(--page-height),
+    transparent calc(var(--page-height) + var(--page-gap))
+  );
+  mask-image: repeating-linear-gradient(
+    to bottom,
+    black 0,
+    black var(--page-height),
+    transparent var(--page-height),
+    transparent calc(var(--page-height) + var(--page-gap))
+  );
 }
 
 .editorCore::after {
@@ -106,6 +110,21 @@
   inset: 0;
   pointer-events: none;
   z-index: 3;
+}
+
+.pageMarkers::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent var(--page-height),
+    rgba(31, 41, 55, 0.18) var(--page-height),
+    rgba(31, 41, 55, 0.18) calc(var(--page-height) + 1px),
+    transparent calc(var(--page-height) + 1px),
+    transparent calc(var(--page-height) + var(--page-gap))
+  );
 }
 
 .pageMarker {
@@ -203,6 +222,11 @@
   font-weight: bold;
   text-align: left;
   background-color: var(--bg-elevated);
+  color: #ffffff;
+}
+
+[data-theme='light'] .editorCore :global(th) {
+  color: var(--text-sheet);
 }
 
 .editorCore :global(.selectedCell:after) {

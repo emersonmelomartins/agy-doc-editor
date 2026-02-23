@@ -149,8 +149,31 @@ async function blobToPng(blob: Blob): Promise<Blob> {
   }
 }
 
+function parseDataUrl(dataUrl: string): { data: Uint8Array; mimeType: string } | null {
+  const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl.trim());
+  if (!match) return null;
+  const mimeType = match[1].toLowerCase();
+  try {
+    const binary = atob(match[2]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return { data: bytes, mimeType };
+  } catch {
+    return null;
+  }
+}
+
 async function resolveDocxImagePayload(source: string): Promise<DocxImagePayload> {
-  const response = await fetch(source);
+  const trimmed = source.trim();
+  if (trimmed.startsWith('data:')) {
+    const parsed = parseDataUrl(trimmed);
+    if (!parsed) throw new Error('Data URL de imagem invalida.');
+    let docxType = mapMimeTypeToDocxType(parsed.mimeType);
+    if (!docxType) docxType = 'png';
+    return { data: parsed.data, type: docxType };
+  }
+
+  const response = await fetch(trimmed);
   if (!response.ok) {
     throw new Error(`Falha ao carregar imagem (${response.status}).`);
   }

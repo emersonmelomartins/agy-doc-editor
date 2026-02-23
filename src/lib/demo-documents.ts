@@ -14,7 +14,7 @@ function buildLongParagraph(index: number) {
     content: [
       {
         type: 'text',
-        text: `Paragrafo ${index + 1}: Este documento de demonstracao foi criado para validar paginação A4, exportação DOCX e comportamento de edição. O texto e propositalmente mais longo para ocupar varias linhas e forcar a distribuicao entre folhas, mantendo margens superiores e inferiores consistentes.`,
+        text: `Paragrafo ${index + 1}: Este documento de demonstracao foi criado para validar paginação A4, exportação DOCX/PDF e comportamento de edição. O texto e propositalmente mais longo para ocupar varias linhas e forcar a distribuicao entre folhas, mantendo margens superiores e inferiores consistentes.`,
       },
     ],
   };
@@ -35,7 +35,7 @@ function buildIllustrationDataUri(title: string, subtitle: string, start: string
       <rect x="80" y="500" width="1040" height="110" rx="18" fill="rgba(9,16,25,0.26)" />
       <text x="100" y="220" font-family="Manrope,Arial,sans-serif" font-size="76" font-weight="800" fill="#F8FAFC">${title}</text>
       <text x="100" y="280" font-family="Manrope,Arial,sans-serif" font-size="36" font-weight="600" fill="#D6E4F0">${subtitle}</text>
-      <text x="115" y="560" font-family="Manrope,Arial,sans-serif" font-size="28" font-weight="600" fill="#F8FAFC">Manual Visual • Fluxo operacional e checkpoints</text>
+      <text x="115" y="560" font-family="Manrope,Arial,sans-serif" font-size="28" font-weight="600" fill="#F8FAFC">Manual de Demonstracao • Paginacao e imagens para teste</text>
     </svg>
   `;
 
@@ -59,7 +59,7 @@ function buildManualImageNode(index: number, width: number = 560) {
     attrs: {
       src: buildIllustrationDataUri(
         `Etapa ${index + 1}`,
-        'Painel ilustrativo para demonstracao de manual',
+        'Imagem para teste de exportacao PDF/DOCX',
         palette[0],
         palette[1]
       ),
@@ -69,20 +69,25 @@ function buildManualImageNode(index: number, width: number = 560) {
   };
 }
 
-const demoTextContent = {
+const manualCompletoContent = {
   type: 'doc',
   content: [
     {
       type: 'heading',
       attrs: { level: 1, textAlign: 'center' },
-      content: [{ type: 'text', text: 'Documento de Demonstracao Completa' }],
+      content: [{ type: 'text', text: 'Manual de Demonstracao — Todas as Funcionalidades' }],
     },
     {
       type: 'paragraph',
       attrs: { textAlign: 'center' },
       content: [
-        { type: 'text', marks: [{ type: 'italic' }], text: 'Exemplo pronto com recursos de editor e exportacao' },
+        { type: 'text', marks: [{ type: 'italic' }], text: 'Use este documento para testar edicao, paginacao A4 e exportacao PDF/DOCX com imagens.' },
       ],
+    },
+    {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: '1. Formatação de texto' }],
     },
     {
       type: 'paragraph',
@@ -93,22 +98,16 @@ const demoTextContent = {
         { type: 'text', marks: [{ type: 'strike' }], text: 'tachado, ' },
         { type: 'text', marks: [{ type: 'superscript' }], text: 'sobrescrito, ' },
         { type: 'text', marks: [{ type: 'subscript' }], text: 'subscrito, ' },
-        { type: 'text', marks: [{ type: 'textStyle', attrs: { color: '#d63f3f' } }], text: 'cor personalizada, ' },
+        { type: 'text', marks: [{ type: 'textStyle', attrs: { color: '#d63f3f' } }], text: 'cor, ' },
         { type: 'text', marks: [{ type: 'highlight', attrs: { color: '#fff29a' } }], text: 'realce e ' },
-        {
-          type: 'text',
-          marks: [{ type: 'link', attrs: { href: 'https://example.com' } }],
-          text: 'link.',
-        },
+        { type: 'text', marks: [{ type: 'link', attrs: { href: 'https://example.com' } }], text: 'link.' },
       ],
     },
-    {
-      type: 'horizontalRule',
-    },
+    { type: 'horizontalRule' },
     {
       type: 'heading',
       attrs: { level: 2 },
-      content: [{ type: 'text', text: 'Listas e tarefas' }],
+      content: [{ type: 'text', text: '2. Listas e tarefas' }],
     },
     {
       type: 'bulletList',
@@ -134,40 +133,36 @@ const demoTextContent = {
     {
       type: 'heading',
       attrs: { level: 2 },
-      content: [{ type: 'text', text: 'Citação, código, imagem e tabela' }],
+      content: [{ type: 'text', text: '3. Citacao e codigo' }],
     },
     {
       type: 'blockquote',
       content: [
-        {
-          type: 'paragraph',
-          content: [
-            { type: 'text', text: 'Uma citação para mostrar recuo e destaque de conteúdo no editor.' },
-          ],
-        },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Uma citacao para mostrar recuo e destaque no editor e na exportacao.' }] },
       ],
     },
     {
       type: 'codeBlock',
       content: [
-        {
-          type: 'text',
-          text: 'function soma(a, b) {\n  return a + b;\n}\nconsole.log(soma(2, 3));',
-        },
+        { type: 'text', text: 'function soma(a, b) {\n  return a + b;\n}\nconsole.log(soma(2, 3));' },
       ],
+    },
+    {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: '4. Imagens (teste de exportacao PDF/DOCX)' }],
     },
     {
       type: 'paragraph',
       attrs: { textAlign: 'center' },
-      content: [{ type: 'text', text: 'Imagem inline:' }],
+      content: [{ type: 'text', text: 'Imagem inline (PNG):' }],
     },
+    buildManualImageNode(0, 520),
+    buildManualImageNode(1, 620),
     {
-      type: 'image',
-      attrs: {
-        src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9VE3SkAAAAAASUVORK5CYII=',
-        width: 260,
-        height: 120,
-      },
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: '5. Tabela' }],
     },
     {
       type: 'table',
@@ -175,7 +170,7 @@ const demoTextContent = {
         {
           type: 'tableRow',
           content: [
-            { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Coluna A' }] }] },
+            { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Coluna A',  }] }] },
             { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Coluna B' }] }] },
             { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Coluna C' }] }] },
           ],
@@ -190,209 +185,32 @@ const demoTextContent = {
         },
       ],
     },
-    ...Array.from({ length: 26 }, (_, i) => buildLongParagraph(i)),
-    {
-      type: 'paragraph',
-      attrs: { textAlign: 'right' },
-      content: [{ type: 'text', text: 'Fim do documento de exemplo.' }],
-    },
-  ],
-};
-
-const qaChecklistTextContent = {
-  type: 'doc',
-  content: [
-    {
-      type: 'heading',
-      attrs: { level: 1 },
-      content: [{ type: 'text', text: 'QA - Checklist Completo do Editor' }],
-    },
-    {
-      type: 'paragraph',
-      content: [
-        {
-          type: 'text',
-          text: 'Use este documento para validar edicao, paginação manual por overflow e exportacao fiel (PDF/DOCX).',
-        },
-      ],
-    },
-    {
-      type: 'taskList',
-      content: [
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Negrito, itálico, sublinhado e tachado' }] }] },
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alinhamentos: esquerda, centro, direita e justificado' }] }] },
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Lista com marcadores, numerada e tarefas' }] }] },
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Insercao de imagem, tabela e bloco de código' }] }] },
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Exportacao para PDF e DOCX mantendo layout de folhas A4' }] }] },
-      ],
-    },
-    ...Array.from({ length: 38 }, (_, i) => buildLongParagraph(i + 1)),
-  ],
-};
-
-const demoSpreadsheetContent = {
-  data: [
-    ['Produto', 'Categoria', 'Qtd', 'Preco Unit', 'Subtotal', 'Status'],
-    ['Notebook', 'Eletronicos', 4, 4200, '=C2*D2', 'OK'],
-    ['Monitor', 'Eletronicos', 6, 1300, '=C3*D3', 'OK'],
-    ['Teclado', 'Acessorios', 10, 240, '=C4*D4', 'OK'],
-    ['Mouse', 'Acessorios', 10, 180, '=C5*D5', 'OK'],
-    ['', '', '', '', '', ''],
-    ['Total Geral', '', '', '', '=SUM(E2:E5)', ''],
-    ['Media', '', '', '', '=(E2+E3+E4+E5)/4', ''],
-    ['Meta', '', '', '', 20000, ''],
-    ['Atingiu?', '', '', '', '=E7-E9', ''],
-  ],
-  colHeaders: ['A', 'B', 'C', 'D', 'E', 'F'],
-  rowCount: 30,
-  colCount: 6,
-};
-
-const richImagesManualContent = {
-  type: 'doc',
-  content: [
-    {
-      type: 'heading',
-      attrs: { level: 1, textAlign: 'center' },
-      content: [{ type: 'text', text: 'Manual Visual — Estacao de Embalagem X1' }],
-    },
-    {
-      type: 'paragraph',
-      attrs: { textAlign: 'center' },
-      content: [{ type: 'text', marks: [{ type: 'italic' }], text: 'Guia completo com imagens, checklists e operacao passo a passo' }],
-    },
-    {
-      type: 'image',
-      attrs: {
-        src: buildIllustrationDataUri('Painel Principal', 'Visao geral da interface e botoes principais', '#0f766e', '#164e63'),
-        width: 640,
-        height: 330,
-      },
-    },
-    {
-      type: 'horizontalRule',
-    },
     {
       type: 'heading',
       attrs: { level: 2 },
-      content: [{ type: 'text', text: '1. Preparacao inicial' }],
+      content: [{ type: 'text', text: '6. Paginacao (paragrafos longos)' }],
     },
-    {
-      type: 'orderedList',
-      content: [
-        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Conferir energia, conexao de rede e sensores ativos.' }] }] },
-        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Selecionar perfil de operador e carregar receita de producao.' }] }] },
-        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Validar temperatura e calibracao de alimentacao.' }] }] },
-      ],
-    },
-    buildManualImageNode(0, 520),
+    ...Array.from({ length: 28 }, (_, i) => buildLongParagraph(i)),
+    buildManualImageNode(2, 460),
     {
       type: 'paragraph',
       attrs: { textAlign: 'justify' },
-      content: [{ type: 'text', text: 'A imagem acima representa o painel de inicio com indicadores de status. Use os blocos coloridos para identificar eventuais alertas antes de iniciar a linha.' }],
+      content: [{ type: 'text', text: 'Imagem acima no meio do conteudo para validar que a paginacao e a exportacao mantem layout e imagens em multiplas folhas.' }],
     },
+    ...Array.from({ length: 7 }, (_, i) => buildLongParagraph(i + 28)),
     {
-      type: 'heading',
-      attrs: { level: 2 },
-      content: [{ type: 'text', text: '2. Fluxo operacional' }],
+      type: 'paragraph',
+      attrs: { textAlign: 'right' },
+      content: [{ type: 'text', text: 'Fim do manual de demonstracao.' }],
     },
-    buildManualImageNode(1, 620),
-    {
-      type: 'bulletList',
-      content: [
-        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Monitoramento em tempo real de fila e throughput.' }] }] },
-        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ajuste fino de velocidade sem interromper lote.' }] }] },
-        { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Log de anomalias com timestamp para auditoria.' }] }] },
-      ],
-    },
-    buildManualImageNode(2, 460),
-    buildManualImageNode(3, 560),
-    {
-      type: 'table',
-      content: [
-        {
-          type: 'tableRow',
-          content: [
-            { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Parametro' }] }] },
-            { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Valor alvo' }] }] },
-            { type: 'tableHeader', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Limite critico' }] }] },
-          ],
-        },
-        {
-          type: 'tableRow',
-          content: [
-            { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Temperatura selagem' }] }] },
-            { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '182 C' }] }] },
-            { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '190 C' }] }] },
-          ],
-        },
-        {
-          type: 'tableRow',
-          content: [
-            { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Velocidade esteira' }] }] },
-            { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '1.8 m/s' }] }] },
-            { type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '2.2 m/s' }] }] },
-          ],
-        },
-      ],
-    },
-    {
-      type: 'heading',
-      attrs: { level: 2 },
-      content: [{ type: 'text', text: '3. Checklist de encerramento' }],
-    },
-    {
-      type: 'taskList',
-      content: [
-        { type: 'taskItem', attrs: { checked: true }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Exportar relatorio do turno em PDF.' }] }] },
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Salvar backup da configuracao atual.' }] }] },
-        { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Executar limpeza e validar sensores pos-operacao.' }] }] },
-      ],
-    },
-    buildManualImageNode(4, 600),
-    buildManualImageNode(5, 500),
-    {
-      type: 'codeBlock',
-      content: [
-        {
-          type: 'text',
-          text: 'const status = await machine.checkHealth();\nif (!status.ok) {\n  notifyTeam(status.alerts);\n  pauseLine();\n}',
-        },
-      ],
-    },
-    {
-      type: 'blockquote',
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Dica: sempre registrar foto da tela de alarmes antes de reiniciar qualquer modulo.' }] }],
-    },
-    buildManualImageNode(6, 540),
-    buildManualImageNode(7, 580),
-    ...Array.from({ length: 12 }, (_, i) => buildLongParagraph(i + 40)),
   ],
 };
 
 export const DEMO_DOCUMENTS: SeedDocument[] = [
   {
-    name: 'Exemplo Completo - Editor de Texto (2+ paginas)',
+    name: 'Manual de Demonstracao (paginacao e imagens)',
     type: 'text',
-    content: JSON.stringify(demoTextContent),
-    templateId: 'demo-full-text',
-  },
-  {
-    name: 'Exemplo Completo - Planilha com Formulas',
-    type: 'spreadsheet',
-    content: JSON.stringify(demoSpreadsheetContent),
-    templateId: 'demo-full-sheet',
-  },
-  {
-    name: 'QA - Checklist de Funcionalidades (2+ paginas)',
-    type: 'text',
-    content: JSON.stringify(qaChecklistTextContent),
-    templateId: 'demo-qa-checklist',
-  },
-  {
-    name: 'Manual Visual - Estacao X1 (muitas imagens)',
-    type: 'text',
-    content: JSON.stringify(richImagesManualContent),
-    templateId: 'demo-rich-images-manual',
+    content: JSON.stringify(manualCompletoContent),
+    templateId: 'demo-manual-completo',
   },
 ];
