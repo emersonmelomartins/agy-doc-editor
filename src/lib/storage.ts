@@ -1,7 +1,46 @@
-import { Document, DocumentType } from '@/types';
+import type { Document, DocumentType } from '../types/index.ts';
 import { v4 as uuidv4 } from 'uuid';
+import { DEMO_DOCUMENTS } from './demo-documents.ts';
 
 const STORAGE_KEY = 'doceditor_documents';
+const SEED_VERSION_KEY = 'doceditor_seed_version';
+const SEED_VERSION = 'v1';
+
+export function ensureDemoDocumentsSeeded(): void {
+  if (typeof window === 'undefined') return;
+
+  const raw = localStorage.getItem(STORAGE_KEY);
+  let docs: Document[] = [];
+  try {
+    docs = raw ? JSON.parse(raw) : [];
+  } catch {
+    docs = [];
+  }
+
+  const existingTemplateIds = new Set(docs.map((doc) => doc.templateId).filter(Boolean));
+  const now = new Date().toISOString();
+  const missingDemoDocs = DEMO_DOCUMENTS
+    .filter((seed, idx) => {
+      const templateId = seed.templateId ?? `seed-${idx + 1}`;
+      return !existingTemplateIds.has(templateId);
+    })
+    .map((seed, idx) => ({
+      id: uuidv4(),
+      name: seed.name,
+      type: seed.type,
+      content: seed.content,
+      createdAt: now,
+      updatedAt: now,
+      templateId: seed.templateId ?? `seed-${idx + 1}`,
+    }));
+
+  if (!missingDemoDocs.length && localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION) {
+    return;
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...docs, ...missingDemoDocs]));
+  localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION);
+}
 
 export function getDocuments(): Document[] {
   if (typeof window === 'undefined') return [];

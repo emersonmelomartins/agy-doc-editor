@@ -1,0 +1,161 @@
+.editorPage {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.header {
+  min-height: 60px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  padding-top: env(safe-area-inset-top);
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.docInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.docName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.docName:focus {
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 1px var(--border-focus);
+}
+
+.status {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Spinner */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.exportMenu {
+  position: relative;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  width: 180px;
+  z-index: 100;
+  animation: fadeIn 0.15s ease both;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-align: left;
+}
+
+.menuItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.menuDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 0;
+}
+
+@media (max-width: 900px) {
+  .header {
+    min-height: 0;
+    padding: 10px 12px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .headerLeft,
+  .headerRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .docName {
+    width: 100%;
+    font-size: 14px;
+  }
+}

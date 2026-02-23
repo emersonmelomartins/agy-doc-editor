@@ -1,42 +1,133 @@
-# Architecture Documentation
+# Arquitetura - Docora Studio
 
-This document describes the technical architecture and design decisions of the Document Editor project.
+Este documento descreve a arquitetura atual da aplicação e como evoluir o projeto com baixo acoplamento.
 
-## 🏗️ Project Structure
+## Objetivos de Arquitetura
 
-The project follows a standard Next.js directory structure:
+- Código legível e modular.
+- Fácil manutenção e evolução.
+- Separação clara entre UI, regras de negócio e infraestrutura.
+- Alta testabilidade.
 
-- `/src/app`: Application routes and layout (Next.js App Router).
-- `/src/components`: UI components, including the main editors.
-- `/src/lib`: Logic for data storage, templates, and export functions.
-- `/src/types`: TypeScript interfaces and type definitions.
-- `/docs`: Project documentation and guides.
+## Stack e Responsabilidades
 
-## 💾 Data Management
+- `React + TanStack Router`: renderização e navegação.
+- `Zustand`: estado global e orquestração de documentos/tema.
+- `Tiptap`: editor de texto rico.
+- `src/services`: fluxos de caso de uso da aplicação.
+- `src/features`: regras de negócio puras.
+- `src/lib`: infraestrutura (storage, export/import, paginação, utilitários).
 
-To provide a seamless experience without requiring a backend for the initial version, the application uses `localStorage` for data persistence.
+## Mapa de Camadas
 
-- **Storage Logic**: Located in `src/lib/storage.ts`.
-- **Structure**: Documents are stored as an array of objects containing metadata (id, title, type) and content (stringified JSON).
+1. `pages/` e `components/`
+- Interface e interação com usuário.
+- Sem regra de negócio pesada.
 
-## 📝 Editor Implementations
+2. `store/`
+- Estado global (`documents-store`, `theme-store`).
+- Chama serviços para persistência/exportação.
 
-### Text Editor (`TextEditor.tsx`)
-Built on top of **Tiptap**, a headless editor framework. It leverages various extensions for advanced formatting. The state is synchronized with the parent component through an `onChange` callback that passes the editor's JSON content.
+3. `services/`
+- Casos de uso (`documents-service`, `export-service`).
+- Coordena domínio + infraestrutura.
 
-### Spreadsheet Editor (`SpreadsheetEditor.tsx`)
-A custom-built React component that renders a grid of inputs.
-- **Formula Evaluation**: Uses a regex-based parser to evaluate formulas like `=SUM()`.
-- **State**: Maintains a 2D array of data.
+4. `features/`
+- Regras puras de documentos e filtros.
+- Fácil de testar sem React.
 
-## 📤 Export System
+5. `lib/`
+- Adapters de IO (`storage`, `import-documents`, `export-*`).
+- Lógica de paginação (`pagination.ts`) e conversão de conteúdo.
 
-The export logic is modularized into separate files in `src/lib/`:
+## Estrutura de Diretórios
 
-1.  **DOCX (`exportDocx.ts`)**: Uses the `docx` library to map Tiptap JSON nodes to Word document elements.
-2.  **XLSX (`exportXlsx.ts`)**: Uses the `xlsx` (SheetJS) library to convert 2D arrays into Excel sheets.
-3.  **PDF (`exportPdf.ts`)**: Uses `html2canvas` to capture the editor DOM and `jspdf` to generate the PDF file.
+```text
+src/
+  components/
+    editor/
+      text-editor-toolbar.tsx
+      toolbar-icon-button.tsx
+    ui/
+      button.tsx
+  config/
+    branding.ts
+    theme.ts
+  features/
+    documents/model.ts
+  lib/
+    storage.ts
+    pagination.ts
+    export-docx.ts
+    export-pdf.ts
+    export-xlsx.ts
+    import-documents.ts
+    file-download.ts
+  pages/
+    home-page.tsx
+    editor-page.tsx
+  services/
+    documents-repository.ts
+    documents-service.ts
+    export-service.ts
+  store/
+    documents-store.ts
+    theme-store.ts
+  router.tsx
+  main.tsx
+tests/
+```
 
-## 🎨 Styling
+## Persistência e Repositório
 
-The project uses **CSS Modules** for component-level styling, ensuring no class name collisions and a maintainable CSS structure. Global variables for colors and themes are defined in `src/app/globals.css`.
+- Contrato: `src/services/documents-repository.ts`
+- Implementação padrão: `LocalStorageDocumentsRepository`
+- Consumo: `documents-service` + stores
+
+Esse desenho permite trocar para backend HTTP no futuro sem quebrar as páginas.
+
+## Paginação de Documento A4
+
+A paginação visual do editor é baseada em regras de folha:
+
+- Altura A4 fixa por página renderizada.
+- Margens superiores/inferiores preservadas.
+- Quebra automática quando o conteúdo excede a área útil.
+- Não gerar páginas finais vazias sem conteúdo.
+
+A lógica fica isolada em `src/lib/pagination.ts` e testes dedicados em `tests/pagination.test.ts`.
+
+## Exportação
+
+- `DOCX`: `src/lib/export-docx.ts`
+- `PDF`: `src/lib/export-pdf.ts`
+- `XLSX`: `src/lib/export-xlsx.ts`
+- Nome/normalização de arquivo: `src/lib/file-download.ts`
+
+Orquestração única: `src/services/export-service.ts`.
+
+## Estratégia de Testes
+
+- Runner nativo do Node (`node --test`)
+- Cobertura com `c8 --100`
+- Foco em testes de domínio e infraestrutura pura (`src/**/*.ts`)
+
+Principais suítes:
+
+- `tests/pagination.test.ts`
+- `tests/import-documents.test.ts`
+- `tests/documents-service.test.ts`
+- `tests/file-download.test.ts`
+- `tests/spreadsheet.test.ts`
+
+## Extensibilidade
+
+Para adicionar funcionalidades:
+
+1. Criar regra nova em `features/` ou `lib/`.
+2. Expor caso de uso em `services/`.
+3. Conectar ao `store/`.
+4. Renderizar na `page`/`component`.
+5. Adicionar testes na camada afetada.
+
+Esse fluxo mantém o projeto escalável e previsível.
