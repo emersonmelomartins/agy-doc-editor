@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { calculatePageCount, getPageContentHeight } from '../src/lib/pagination.ts';
+import { calculatePageCount, getPageContentHeight } from '../src/utils/pagination.ts';
 
 test('getPageContentHeight returns A4 content area with default margins', () => {
   assert.equal(getPageContentHeight(), 953);

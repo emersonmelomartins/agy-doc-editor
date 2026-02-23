@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from 'react';
+import { useState, useEffect, useMemo, useDeferredValue, type ChangeEvent } from 'react';
 import { Document } from '@/types';
 import { TEMPLATES } from '@/lib/templates';
 import { importDocumentFile } from '@/lib/import-documents';
@@ -31,8 +31,9 @@ export default function HomePage() {
     loadDocuments();
   }, [loadDocuments]);
 
-  const filtered = filterDocuments(documents, filter, search);
-  const stats = getDocumentsStats(documents);
+  const deferredSearch = useDeferredValue(search);
+  const filtered = useMemo(() => filterDocuments(documents, filter, deferredSearch), [documents, filter, deferredSearch]);
+  const stats = useMemo(() => getDocumentsStats(documents), [documents]);
 
   const handleDelete = (id: string) => {
     if (confirm('Excluir este documento?')) {

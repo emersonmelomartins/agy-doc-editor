@@ -1,5 +1,15 @@
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
+import {
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Shrink,
+  Expand,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -20,8 +30,8 @@ import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { lowlight } from 'lowlight';
-import { parseTextContent } from '@/lib/text-content';
-import { calculatePageCount } from '@/lib/pagination';
+import { parseTextContent } from '@/utils/text-content';
+import { calculatePageCount } from '@/utils/pagination';
 import TextEditorToolbar from '@/components/editor/text-editor-toolbar';
 
 import styles from './text-editor.module.css';
@@ -31,10 +41,76 @@ interface TextEditorProps {
   onChange: (content: string) => void;
 }
 
+const CrossPlatformHistoryShortcuts = Extension.create({
+  name: 'cross-platform-history-shortcuts',
+  addKeyboardShortcuts() {
+    return {
+      'Mod-z': () => this.editor.commands.undo(),
+      'Mod-Shift-z': () => this.editor.commands.redo(),
+      'Mod-y': () => this.editor.commands.redo(),
+      'Ctrl-z': () => this.editor.commands.undo(),
+      'Ctrl-Shift-z': () => this.editor.commands.redo(),
+      'Ctrl-y': () => this.editor.commands.redo(),
+    };
+  },
+});
+
+const EditableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: 420,
+        parseHTML: (element) => {
+          const value = element.getAttribute('data-width') ?? element.getAttribute('width');
+          const parsed = Number(value);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 420;
+        },
+        renderHTML: (attributes) => {
+          const width = Number(attributes.width) > 0 ? Number(attributes.width) : 420;
+          const offsetX = Number(attributes.offsetX);
+          const transform = Number.isFinite(offsetX) && offsetX !== 0
+            ? `transform:translateX(${offsetX}px);`
+            : '';
+          return {
+            'data-width': String(width),
+            style: `width:${width}px;max-width:100%;height:auto;${transform}`,
+          };
+        },
+      },
+      align: {
+        default: 'center',
+        parseHTML: (element) => element.getAttribute('data-align') ?? 'center',
+        renderHTML: (attributes) => ({ 'data-align': String(attributes.align ?? 'center') }),
+      },
+      offsetX: {
+        default: 0,
+        parseHTML: (element) => {
+          const parsed = Number(element.getAttribute('data-offset-x'));
+          return Number.isFinite(parsed) ? parsed : 0;
+        },
+        renderHTML: (attributes) => {
+          const offsetX = Number(attributes.offsetX);
+          if (!Number.isFinite(offsetX) || offsetX === 0) return {};
+          return { 'data-offset-x': String(offsetX) };
+        },
+      },
+    };
+  },
+});
+
 export default function TextEditor({ content, onChange }: TextEditorProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pagedContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollAreaRef = React.useRef<HTMLDivElement | null>(null);
+  const lastEditorContentRef = React.useRef(content);
+  const isInternalUpdateRef = React.useRef(false);
   const [pageCount, setPageCount] = React.useState(1);
+  const [imageTools, setImageTools] = React.useState<{ top: number; left: number; visible: boolean }>({
+    top: 0,
+    left: 0,
+    visible: false,
+  });
 
   const schedulePagination = React.useCallback((editorRoot: HTMLElement | null) => {
     if (!editorRoot) return;
@@ -86,12 +162,13 @@ export default function TextEditor({ content, onChange }: TextEditorProps) {
       FontFamily,
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: 'Comece a escrever...' }),
-      Image,
+      EditableImage,
       TaskList,
       TaskItem.configure({ nested: true }),
       Subscript,
       Superscript,
       CodeBlockLowlight.configure({ lowlight }),
+      CrossPlatformHistoryShortcuts,
     ],
     content: parseTextContent(content),
     onCreate: ({ editor }) => {
@@ -100,17 +177,85 @@ export default function TextEditor({ content, onChange }: TextEditorProps) {
       }
     },
     onUpdate: ({ editor }) => {
-      onChange(JSON.stringify(editor.getJSON()));
+      const nextContent = JSON.stringify(editor.getJSON());
+      lastEditorContentRef.current = nextContent;
+      isInternalUpdateRef.current = true;
+      onChange(nextContent);
+      queueMicrotask(() => {
+        isInternalUpdateRef.current = false;
+      });
       if (pagedContainerRef.current) {
         schedulePagination(pagedContainerRef.current);
       }
     },
-  }, [content, onChange, schedulePagination]);
+  }, [onChange, schedulePagination]);
 
   React.useEffect(() => {
     if (!editor || !pagedContainerRef.current) return;
     schedulePagination(pagedContainerRef.current);
-  }, [editor, schedulePagination, content]);
+  }, [editor, schedulePagination]);
+
+  const updateImageToolsPosition = React.useCallback(() => {
+    if (!editor || !scrollAreaRef.current || !editor.isActive('image')) {
+      setImageTools((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+      return;
+    }
+
+    const selectedImage = document.querySelector('.ProseMirror-selectednode img, img.ProseMirror-selectednode') as HTMLElement | null;
+    if (!selectedImage) {
+      setImageTools((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+      return;
+    }
+
+    const rect = selectedImage.getBoundingClientRect();
+    const panelWidth = 312;
+    const panelHeight = 42;
+    const margin = 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const left = Math.max(
+      margin,
+      Math.min(rect.left + rect.width / 2 - panelWidth / 2, viewportWidth - panelWidth - margin)
+    );
+    const preferredTop = rect.top - panelHeight - margin;
+    const top = preferredTop > margin ? preferredTop : Math.min(rect.bottom + margin, viewportHeight - panelHeight - margin);
+
+    setImageTools({ top, left, visible: true });
+  }, [editor]);
+
+  React.useEffect(() => {
+    if (!editor) return;
+
+    const onSelectionOrTransaction = () => updateImageToolsPosition();
+    editor.on('selectionUpdate', onSelectionOrTransaction);
+    editor.on('transaction', onSelectionOrTransaction);
+
+    const onWindowResize = () => updateImageToolsPosition();
+    const onScroll = () => updateImageToolsPosition();
+    window.addEventListener('resize', onWindowResize);
+    scrollAreaRef.current?.addEventListener('scroll', onScroll, { passive: true });
+
+    updateImageToolsPosition();
+    return () => {
+      editor.off('selectionUpdate', onSelectionOrTransaction);
+      editor.off('transaction', onSelectionOrTransaction);
+      window.removeEventListener('resize', onWindowResize);
+      scrollAreaRef.current?.removeEventListener('scroll', onScroll);
+    };
+  }, [editor, updateImageToolsPosition]);
+
+  React.useEffect(() => {
+    if (!editor) return;
+    if (isInternalUpdateRef.current) return;
+    if (content === lastEditorContentRef.current) return;
+
+    lastEditorContentRef.current = content;
+    editor.commands.setContent(parseTextContent(content), false);
+    if (pagedContainerRef.current) {
+      schedulePagination(pagedContainerRef.current);
+    }
+  }, [editor, content, schedulePagination]);
 
   React.useEffect(() => {
     if (!editor || !pagedContainerRef.current) return;
@@ -140,6 +285,18 @@ export default function TextEditor({ content, onChange }: TextEditorProps) {
 
   if (!editor) return null;
 
+  const imageAttrs = editor.getAttributes('image') as { width?: number; align?: string; offsetX?: number };
+  const currentImageWidth = Number(imageAttrs.width) > 0 ? Number(imageAttrs.width) : 420;
+  const currentOffsetX = Number.isFinite(Number(imageAttrs.offsetX)) ? Number(imageAttrs.offsetX) : 0;
+  const setImageWidth = (nextWidth: number) => {
+    const width = Math.max(120, Math.min(680, nextWidth));
+    editor.chain().focus().updateAttributes('image', { width }).run();
+  };
+  const nudgeImage = (deltaX: number) => {
+    const nextOffset = Math.max(-220, Math.min(220, currentOffsetX + deltaX));
+    editor.chain().focus().updateAttributes('image', { offsetX: nextOffset }).run();
+  };
+
   const pageHeight = 1123;
   const pageGap = 12;
   const documentHeight = (pageCount * pageHeight) + ((pageCount - 1) * pageGap);
@@ -152,7 +309,7 @@ export default function TextEditor({ content, onChange }: TextEditorProps) {
     <div className={styles.editorContainer}>
       <TextEditorToolbar editor={editor} fileInputRef={fileInputRef} />
 
-      <div className={styles.scrollArea}>
+      <div ref={scrollAreaRef} className={styles.scrollArea}>
         <div
           id="print-content"
           ref={pagedContainerRef}
@@ -166,15 +323,94 @@ export default function TextEditor({ content, onChange }: TextEditorProps) {
           }
         >
           <EditorContent editor={editor} className={styles.editorCore} style={{ minHeight: `${documentHeight}px` }} />
-          <div className={styles.pageMarkers} aria-hidden="true">
+          <div className={styles.pageMarkers} data-page-markers="true" aria-hidden="true">
             {pageMarkers.map((marker) => (
-              <div key={marker.page} className={styles.pageMarker} style={{ top: `${marker.top}px` }}>
+              <div
+                key={marker.page}
+                className={styles.pageMarker}
+                data-page-marker="true"
+                style={{ top: `${marker.top}px` }}
+              >
                 p.{marker.page}
               </div>
             ))}
           </div>
         </div>
+        <div className={styles.scrollEndSpacer} aria-hidden="true" />
       </div>
+
+      {imageTools.visible && (
+        <div
+          className={styles.imageQuickTools}
+          style={{ top: `${imageTools.top}px`, left: `${imageTools.left}px` }}
+          role="toolbar"
+          aria-label="Controles da imagem selecionada"
+        >
+          <button
+            className={`btn-icon ${styles.imageToolButton}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setImageWidth(currentImageWidth - 40)}
+            title="Diminuir imagem"
+            aria-label="Diminuir imagem"
+          >
+            <Shrink size={14} />
+          </button>
+          <button
+            className={`btn-icon ${styles.imageToolButton}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setImageWidth(currentImageWidth + 40)}
+            title="Aumentar imagem"
+            aria-label="Aumentar imagem"
+          >
+            <Expand size={14} />
+          </button>
+          <button
+            className={`btn-icon ${styles.imageToolButton} ${imageAttrs.align === 'left' ? 'active' : ''}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => editor.chain().focus().updateAttributes('image', { align: 'left', offsetX: 0 }).run()}
+            title="Alinhar imagem à esquerda"
+            aria-label="Alinhar imagem à esquerda"
+          >
+            <AlignLeft size={14} />
+          </button>
+          <button
+            className={`btn-icon ${styles.imageToolButton} ${imageAttrs.align === 'center' ? 'active' : ''}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => editor.chain().focus().updateAttributes('image', { align: 'center', offsetX: 0 }).run()}
+            title="Centralizar imagem"
+            aria-label="Centralizar imagem"
+          >
+            <AlignCenter size={14} />
+          </button>
+          <button
+            className={`btn-icon ${styles.imageToolButton} ${imageAttrs.align === 'right' ? 'active' : ''}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => editor.chain().focus().updateAttributes('image', { align: 'right', offsetX: 0 }).run()}
+            title="Alinhar imagem à direita"
+            aria-label="Alinhar imagem à direita"
+          >
+            <AlignRight size={14} />
+          </button>
+          <button
+            className={`btn-icon ${styles.imageToolButton}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => nudgeImage(-20)}
+            title="Mover imagem um pouco para esquerda"
+            aria-label="Mover imagem um pouco para esquerda"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            className={`btn-icon ${styles.imageToolButton}`}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => nudgeImage(20)}
+            title="Mover imagem um pouco para direita"
+            aria-label="Mover imagem um pouco para direita"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

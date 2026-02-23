@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseTextContent } from '../src/lib/text-content.ts';
+import { parseTextContent } from '../src/utils/text-content.ts';
 
 test('parseTextContent returns provided valid TipTap document', () => {
   const content = JSON.stringify({

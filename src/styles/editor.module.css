@@ -13,9 +13,10 @@
   min-height: 60px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  column-gap: 12px;
   padding: 0 20px;
   padding-top: env(safe-area-inset-top);
   flex-shrink: 0;
@@ -25,14 +26,18 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
 .docInfo {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .docName {
+  width: min(56vw, 560px);
+  max-width: 100%;
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
@@ -42,6 +47,9 @@
   padding: 2px 4px;
   border-radius: 4px;
   transition: background 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .docName:focus {
@@ -57,10 +65,15 @@
   gap: 4px;
 }
 
+.inlineSpinner {
+  animation: spin 1s linear infinite;
+}
+
 .headerRight {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .main {
@@ -132,6 +145,11 @@
   color: var(--text-primary);
 }
 
+.menuItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .menuDivider {
   height: 1px;
   background: var(--border);
@@ -140,6 +158,7 @@
 
 @media (max-width: 900px) {
   .header {
+    display: flex;
     min-height: 0;
     padding: 10px 12px;
     padding-top: calc(10px + env(safe-area-inset-top));

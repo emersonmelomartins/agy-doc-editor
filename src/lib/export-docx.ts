@@ -3,6 +3,7 @@ import {
   BorderStyle,
   Document,
   HeadingLevel,
+  HighlightColor,
   ImageRun,
   LevelFormat,
   Packer,
@@ -13,7 +14,8 @@ import {
   TextRun,
   WidthType,
 } from 'docx';
-import { buildExportFileName, downloadBlob } from '@/lib/file-download';
+import { buildExportFileName, downloadBlob } from '@/utils/file-download';
+import { capturePrintPages } from '@/utils/capture-print-pages';
 
 type TipTapMark = {
   type: string;
@@ -29,31 +31,14 @@ type TipTapNode = {
 };
 
 type ListKind = 'bullet' | 'ordered';
+type DocxHighlight = (typeof HighlightColor)[keyof typeof HighlightColor];
 
 const PAGE_MARGIN_TOP_BOTTOM_TWIP = 1276; // ~85px
 const PAGE_MARGIN_LEFT_RIGHT_TWIP = 1576; // ~105px
-
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function urlToDataUrl(url: string): Promise<string> {
-  if (url.startsWith('data:')) return url;
-
-  const response = await fetch(url);
-  const blob = await response.blob();
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(String(reader.result || ''));
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+const A4_WIDTH_TWIP = 11906;
+const A4_HEIGHT_TWIP = 16838;
+const A4_WIDTH_PX = 794;
+const A4_HEIGHT_PX = 1123;
 
 function getAlignment(align?: string) {
   if (align === 'center') return AlignmentType.CENTER;
@@ -70,6 +55,20 @@ function pickHighlightMark(marks: TipTapMark[] | undefined): TipTapMark | undefi
   return marks?.find((mark) => mark.type === 'highlight');
 }
 
+function mapHighlightColor(value: unknown): DocxHighlight | undefined {
+  if (typeof value !== 'string') return undefined;
+
+  const normalized = value.toLowerCase();
+  if (normalized === '#ffff00' || normalized === 'yellow') return HighlightColor.YELLOW;
+  if (normalized === '#00ff00' || normalized === 'green') return HighlightColor.GREEN;
+  if (normalized === '#00ffff' || normalized === 'cyan') return HighlightColor.CYAN;
+  if (normalized === '#ff00ff' || normalized === 'magenta') return HighlightColor.MAGENTA;
+  if (normalized === '#0000ff' || normalized === 'blue') return HighlightColor.BLUE;
+  if (normalized === '#ff0000' || normalized === 'red') return HighlightColor.RED;
+
+  return HighlightColor.YELLOW;
+}
+
 function buildTextRuns(nodes: TipTapNode[] | undefined): TextRun[] {
   if (!nodes?.length) return [new TextRun('')];
 
@@ -77,20 +76,26 @@ function buildTextRuns(nodes: TipTapNode[] | undefined): TextRun[] {
   for (const node of nodes) {
     if (node.type === 'text') {
       const textStyle = pickTextStyleMark(node.marks);
+      const highlightMark = pickHighlightMark(node.marks);
+      const hasLink = node.marks?.some((m) => m.type === 'link');
       const color = typeof textStyle?.attrs?.color === 'string'
         ? textStyle.attrs.color.replace('#', '')
-        : undefined;
+        : hasLink
+          ? '0563C1'
+          : undefined;
 
       runs.push(new TextRun({
         text: node.text ?? '',
         bold: node.marks?.some((m) => m.type === 'bold'),
         italics: node.marks?.some((m) => m.type === 'italic'),
-        underline: node.marks?.some((m) => m.type === 'underline') ? {} : undefined,
+        underline: (node.marks?.some((m) => m.type === 'underline') || hasLink) ? {} : undefined,
         strike: node.marks?.some((m) => m.type === 'strike'),
         superScript: node.marks?.some((m) => m.type === 'superscript'),
         subScript: node.marks?.some((m) => m.type === 'subscript'),
         color,
-        highlight: pickHighlightMark(node.marks) ? 'yellow' : undefined,
+        highlight: highlightMark
+          ? (mapHighlightColor(highlightMark.attrs?.color) ?? HighlightColor.YELLOW)
+          : undefined,
       }));
       continue;
     }
@@ -103,11 +108,73 @@ function buildTextRuns(nodes: TipTapNode[] | undefined): TextRun[] {
   return runs.length ? runs : [new TextRun('')];
 }
 
-function getImageTypeFromDataUrl(dataUrl: string): 'png' | 'jpg' | 'gif' | 'bmp' {
-  if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'jpg';
-  if (dataUrl.startsWith('data:image/gif')) return 'gif';
-  if (dataUrl.startsWith('data:image/bmp')) return 'bmp';
-  return 'png';
+type DocxImageType = 'png' | 'jpg' | 'gif' | 'bmp';
+type DocxImagePayload = { data: Uint8Array; type: DocxImageType };
+
+function mapMimeTypeToDocxType(mimeType: string): DocxImageType | null {
+  const normalized = mimeType.toLowerCase();
+  if (normalized === 'image/png') return 'png';
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') return 'jpg';
+  if (normalized === 'image/gif') return 'gif';
+  if (normalized === 'image/bmp') return 'bmp';
+  return null;
+}
+
+async function blobToPng(blob: Blob): Promise<Blob> {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Nao foi possivel carregar a imagem para exportacao DOCX.'));
+      img.src = objectUrl;
+    });
+
+    const canvas = window.document.createElement('canvas');
+    canvas.width = Math.max(1, image.naturalWidth || image.width || 1);
+    canvas.height = Math.max(1, image.naturalHeight || image.height || 1);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D indisponivel para converter imagem.');
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result);
+        else reject(new Error('Falha ao converter imagem para PNG.'));
+      }, 'image/png');
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function resolveDocxImagePayload(source: string): Promise<DocxImagePayload> {
+  const response = await fetch(source);
+  if (!response.ok) {
+    throw new Error(`Falha ao carregar imagem (${response.status}).`);
+  }
+
+  let blob = await response.blob();
+  let docxType = mapMimeTypeToDocxType(blob.type);
+  if (!docxType) {
+    blob = await blobToPng(blob);
+    docxType = 'png';
+  }
+
+  return {
+    data: new Uint8Array(await blob.arrayBuffer()),
+    type: docxType,
+  };
+}
+
+async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error('Falha ao gerar imagem da pagina para DOCX.'));
+    }, 'image/png');
+  });
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 function asNumber(value: unknown, fallback: number): number {
@@ -118,15 +185,19 @@ function asNumber(value: unknown, fallback: number): number {
 function buildListParagraph(
   listType: ListKind,
   node: TipTapNode,
-  level: number
+  level: number,
+  asTaskItem = false
 ): Paragraph {
   const paragraphNode = node.content?.find((child) => child.type === 'paragraph');
   const alignment = getAlignment(paragraphNode?.attrs?.textAlign as string | undefined);
   const children = buildTextRuns(paragraphNode?.content);
+  const checked = Boolean(node.attrs?.checked);
+  const taskPrefix = asTaskItem ? new TextRun({ text: checked ? '☑ ' : '☐ ' }) : null;
+  const mergedChildren = taskPrefix ? [taskPrefix, ...children] : children;
 
   if (listType === 'ordered') {
     return new Paragraph({
-      children,
+      children: mergedChildren,
       alignment,
       numbering: { reference: 'ordered-list', level: Math.min(level, 8) },
       spacing: { after: 120 },
@@ -134,7 +205,7 @@ function buildListParagraph(
   }
 
   return new Paragraph({
-    children,
+    children: mergedChildren,
     alignment,
     bullet: { level: Math.min(level, 8) },
     spacing: { after: 120 },
@@ -171,8 +242,9 @@ async function processNodes(nodes: TipTapNode[], output: Array<Paragraph | Table
 
     if (node.type === 'bulletList' || node.type === 'orderedList' || node.type === 'taskList') {
       const listType: ListKind = node.type === 'orderedList' ? 'ordered' : 'bullet';
+      const asTaskItem = node.type === 'taskList';
       for (const item of node.content ?? []) {
-        output.push(buildListParagraph(listType, item, listLevel));
+        output.push(buildListParagraph(listType, item, listLevel, asTaskItem));
 
         const nestedList = item.content?.find((child) => (
           child.type === 'bulletList' || child.type === 'orderedList' || child.type === 'taskList'
@@ -228,21 +300,21 @@ async function processNodes(nodes: TipTapNode[], output: Array<Paragraph | Table
       try {
         const src = typeof node.attrs?.src === 'string' ? node.attrs.src : '';
         if (!src) continue;
+        const imagePayload = await resolveDocxImagePayload(src);
 
-        const dataUrl = await urlToDataUrl(src);
-        const base64 = dataUrl.split(',')[1];
-        if (!base64) continue;
-
-        const imageWidth = Math.max(120, Math.min(600, asNumber(node.attrs?.width, 420)));
+        const imageWidth = Math.max(120, Math.min(680, asNumber(node.attrs?.width, 420)));
         const imageHeight = Math.max(80, Math.min(800, asNumber(node.attrs?.height, 260)));
+        const imageAlignment = getAlignment(
+          typeof node.attrs?.align === 'string' ? node.attrs.align : 'center'
+        );
 
         output.push(new Paragraph({
-          alignment: AlignmentType.CENTER,
+          alignment: imageAlignment,
           spacing: { before: 180, after: 180 },
           children: [
             new ImageRun({
-              data: base64ToUint8Array(base64),
-              type: getImageTypeFromDataUrl(dataUrl),
+              data: imagePayload.data,
+              type: imagePayload.type,
               transformation: { width: imageWidth, height: imageHeight },
             }),
           ],
@@ -282,11 +354,58 @@ async function processNodes(nodes: TipTapNode[], output: Array<Paragraph | Table
 
 export async function exportToDocx(jsonContent: string, filename: string): Promise<void> {
   try {
+    const liveElement = document.getElementById('print-content');
+    if (liveElement) {
+      const html2canvas = (await import('html2canvas')).default;
+      const pageCanvases = await capturePrintPages(liveElement, html2canvas);
+      const pageImages = await Promise.all(pageCanvases.map((canvas) => canvasToPngBytes(canvas)));
+
+      const visualDoc = new Document({
+        sections: pageImages.map((imageData) => ({
+          properties: {
+            page: {
+              size: { width: A4_WIDTH_TWIP, height: A4_HEIGHT_TWIP },
+              margin: { top: 0, bottom: 0, left: 0, right: 0 },
+            },
+          },
+          children: [
+            new Paragraph({
+              spacing: { before: 0, after: 0, line: 240 },
+              children: [
+                new ImageRun({
+                  data: imageData,
+                  type: 'png',
+                  transformation: { width: A4_WIDTH_PX, height: A4_HEIGHT_PX },
+                }),
+              ],
+            }),
+          ],
+        })),
+      });
+
+      const visualBlob = await Packer.toBlob(visualDoc);
+      downloadBlob(visualBlob, buildExportFileName(filename, 'docx'));
+      return;
+    }
+
     const parsed = JSON.parse(jsonContent) as TipTapNode;
     const children: Array<Paragraph | Table> = [];
     await processNodes(parsed.content ?? [], children);
 
     const docxDoc = new Document({
+      styles: {
+        default: {
+          document: {
+            run: {
+              font: 'Arial',
+              size: 24,
+            },
+            paragraph: {
+              spacing: { line: 360 },
+            },
+          },
+        },
+      },
       numbering: {
         config: [{
           reference: 'ordered-list',
@@ -301,6 +420,10 @@ export async function exportToDocx(jsonContent: string, filename: string): Promi
       sections: [{
         properties: {
           page: {
+            size: {
+              width: A4_WIDTH_TWIP,
+              height: A4_HEIGHT_TWIP,
+            },
             margin: {
               top: PAGE_MARGIN_TOP_BOTTOM_TWIP,
               bottom: PAGE_MARGIN_TOP_BOTTOM_TWIP,

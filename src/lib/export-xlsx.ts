@@ -1,4 +1,4 @@
-import { buildExportFileName } from '@/lib/file-download';
+import { buildExportFileName } from '@/utils/file-download';
 
 export async function exportToXlsx(data: (string | number | null)[][], filename: string): Promise<void> {
   try {

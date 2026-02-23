@@ -1,9 +1,9 @@
 import React from 'react';
 import { Document } from '@/types';
 import { FileText, Sheet, Trash2, Copy, Edit2, ExternalLink } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Link } from '@tanstack/react-router';
+import { formatTimeAgoPt } from '@/utils/time';
+import { buildDocumentPreview } from '@/lib/document-preview';
 import styles from './document-card.module.css';
 
 interface DocumentCardProps {
@@ -19,7 +19,7 @@ interface DocumentCardProps {
   style?: React.CSSProperties;
 }
 
-export default function DocumentCard({
+function DocumentCard({
   doc,
   viewMode,
   isRenaming,
@@ -32,6 +32,8 @@ export default function DocumentCard({
   style
 }: DocumentCardProps) {
   const isText = doc.type === 'text';
+  const timeAgo = React.useMemo(() => formatTimeAgoPt(doc.updatedAt), [doc.updatedAt]);
+  const preview = React.useMemo(() => buildDocumentPreview(doc), [doc.type, doc.content]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') onRenameSubmit();
@@ -50,7 +52,54 @@ export default function DocumentCard({
         aria-label={`Abrir ${doc.name}`}
         title={`Abrir ${doc.name}`}
       >
-        {isText ? <FileText size={viewMode === 'grid' ? 40 : 20} /> : <Sheet size={viewMode === 'grid' ? 40 : 20} />}
+        {viewMode === 'list' ? (
+          isText ? <FileText size={20} /> : <Sheet size={20} />
+        ) : isText ? (
+          <div className={styles.textPreview} aria-hidden="true">
+            {preview.kind === 'text' ? preview.blocks.map((block, index) => {
+              if (block.kind === 'image') {
+                return (
+                  <img
+                    key={`${doc.id}-img-${index}`}
+                    className={styles.previewImage}
+                    src={block.src}
+                    alt=""
+                    loading="lazy"
+                  />
+                );
+              }
+
+              if (block.kind === 'heading') {
+                return <h4 key={`${doc.id}-h-${index}`}>{block.text}</h4>;
+              }
+
+              return <p key={`${doc.id}-p-${index}`}>{block.text}</p>;
+            }) : null}
+          </div>
+        ) : (
+          <div className={styles.sheetPreview} aria-hidden="true">
+            {preview.kind === 'spreadsheet' ? (
+              <table>
+                <thead>
+                  <tr>
+                    {preview.headers.map((header) => (
+                      <th key={`${doc.id}-h-${header}`}>{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.rows.map((row, rowIndex) => (
+                    <tr key={`${doc.id}-r-${rowIndex}`}>
+                      {row.map((cell, cellIndex) => (
+                        <td key={`${doc.id}-c-${rowIndex}-${cellIndex}`}>{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+        )}
       </Link>
 
       <div className={styles.info}>
@@ -75,7 +124,7 @@ export default function DocumentCard({
             {isText ? 'Texto' : 'Planilha'}
           </span>
           <span>•</span>
-          <span>{formatDistanceToNow(new Date(doc.updatedAt), { addSuffix: true, locale: ptBR })}</span>
+          <span>{timeAgo}</span>
         </div>
       </div>
 
@@ -118,3 +167,19 @@ export default function DocumentCard({
     </div>
   );
 }
+
+function arePropsEqual(prev: DocumentCardProps, next: DocumentCardProps): boolean {
+  return (
+    prev.doc.id === next.doc.id &&
+    prev.doc.name === next.doc.name &&
+    prev.doc.type === next.doc.type &&
+    prev.doc.content === next.doc.content &&
+    prev.doc.updatedAt === next.doc.updatedAt &&
+    prev.viewMode === next.viewMode &&
+    prev.isRenaming === next.isRenaming &&
+    prev.renameValue === next.renameValue &&
+    prev.style?.animationDelay === next.style?.animationDelay
+  );
+}
+
+export default React.memo(DocumentCard, arePropsEqual);

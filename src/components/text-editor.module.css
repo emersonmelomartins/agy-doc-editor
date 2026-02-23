@@ -34,11 +34,12 @@
 .scrollArea {
   flex: 1;
   overflow: auto;
-  padding: 40px 0 calc(96px + env(safe-area-inset-bottom));
+  padding: 40px 0 calc(124px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
   background: var(--bg);
+  position: relative;
 }
 
 .pagedDocument {
@@ -116,10 +117,39 @@
   font-variant-numeric: tabular-nums;
 }
 
+.scrollEndSpacer {
+  width: 1px;
+  height: 56px;
+  flex: 0 0 auto;
+}
+
+.imageQuickTools {
+  position: fixed;
+  z-index: 130;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.12s ease both;
+}
+
+.imageToolButton {
+  width: 28px;
+  height: 28px;
+}
+
 @media (max-width: 900px) {
   .scrollArea {
     align-items: flex-start;
-    padding: 16px 8px calc(72px + env(safe-area-inset-bottom));
+    padding: 16px 8px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .scrollEndSpacer {
+    height: 44px;
   }
 }
 
@@ -217,7 +247,30 @@
   max-width: 100%;
   height: auto;
   border-radius: 4px;
-  margin: 1em 0;
+  margin: 1em auto;
+  display: block;
+  width: min(100%, 420px);
+}
+
+.editorCore :global(img[data-align="left"]) {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.editorCore :global(img[data-align="center"]) {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.editorCore :global(img[data-align="right"]) {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.editorCore :global(.ProseMirror-selectednode img),
+.editorCore :global(img.ProseMirror-selectednode) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Task List Styles */

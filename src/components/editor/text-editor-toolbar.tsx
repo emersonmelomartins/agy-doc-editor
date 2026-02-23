@@ -258,7 +258,12 @@ export default function TextEditorToolbar({ editor, fileInputRef }: TextEditorTo
           onClick={() => {
             const url = window.prompt('URL da imagem:');
             if (url) {
-              editor.chain().focus().setImage({ src: url }).run();
+              editor
+                .chain()
+                .focus()
+                .setImage({ src: url })
+                .updateAttributes('image', { width: 420, align: 'center', offsetX: 0 })
+                .run();
             }
           }}
         >
@@ -285,7 +290,12 @@ export default function TextEditorToolbar({ editor, fileInputRef }: TextEditorTo
             const reader = new FileReader();
             reader.onload = (readerEvent) => {
               const result = readerEvent.target?.result as string;
-              editor.chain().focus().setImage({ src: result }).run();
+              editor
+                .chain()
+                .focus()
+                .setImage({ src: result })
+                .updateAttributes('image', { width: 420, align: 'center', offsetX: 0 })
+                .run();
             };
             reader.readAsDataURL(file);
           }}

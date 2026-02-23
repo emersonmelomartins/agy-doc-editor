@@ -5,7 +5,7 @@ import {
   buildExportFileName,
   downloadBlob,
   sanitizeFileBaseName,
-} from '../src/lib/file-download.ts';
+} from '../src/utils/file-download.ts';
 
 test('sanitizeFileBaseName removes invalid chars and keeps readable spaces', () => {
   const value = sanitizeFileBaseName('  relatorio: vendas/2026? *final*  ');
@@ -77,6 +77,39 @@ test('downloadBlob uses anchor download attribute and revokes object URL', async
 
   await new Promise((resolve) => setTimeout(resolve, 1));
   assert.deepEqual(revoked, ['blob:test-url']);
+
+  (globalThis as any).window = originalWindow;
+  (globalThis as any).URL = originalUrl;
+});
+
+test('downloadBlob infers extension when filename has no extension', () => {
+  const originalWindow = (globalThis as any).window;
+  const originalUrl = (globalThis as any).URL;
+
+  const fakeLink = {
+    href: '',
+    download: '',
+    rel: '',
+    click: () => undefined,
+    remove: () => undefined,
+  };
+
+  (globalThis as any).window = {
+    document: {
+      createElement: () => fakeLink,
+      body: { append: () => undefined },
+    },
+  };
+
+  (globalThis as any).URL = {
+    createObjectURL: () => 'blob:test-url',
+    revokeObjectURL: () => undefined,
+  };
+
+  const docxMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  downloadBlob(new Blob(['conteudo'], { type: docxMime }), 'arquivo-exportado');
+
+  assert.equal(fakeLink.download, 'arquivo-exportado.docx');
 
   (globalThis as any).window = originalWindow;
   (globalThis as any).URL = originalUrl;

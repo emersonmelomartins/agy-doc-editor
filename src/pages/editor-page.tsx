@@ -11,7 +11,8 @@ import {
   Check,
   ChevronDown,
   FileJson,
-  Printer
+  Printer,
+  Loader2,
 } from 'lucide-react';
 import styles from '@/styles/editor.module.css';
 
@@ -32,6 +33,8 @@ export default function EditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(null);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -77,14 +80,19 @@ export default function EditorPage() {
   };
 
   const handleExport = async (format: ExportFormat) => {
-    if (!doc) return;
+    if (!doc || isExporting) return;
     setShowExportMenu(false);
+    setIsExporting(true);
+    setExportingFormat(format);
 
     try {
       await exportDocument(doc, format);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Falha na exportação. Verifique o console para detalhes.');
+    } finally {
+      setIsExporting(false);
+      setExportingFormat(null);
     }
   };
 
@@ -123,7 +131,12 @@ export default function EditorPage() {
             <div className={styles.status}>
               {doc.type === 'text' ? <FileText size={12} /> : <Sheet size={12} />}
               <span>•</span>
-              {saving ? 'Salvando...' : (
+              {saving ? 'Salvando...' : isExporting ? (
+                <>
+                  <Loader2 size={12} className={styles.inlineSpinner} />
+                  <span>Exportando {exportingFormat?.toUpperCase()}...</span>
+                </>
+              ) : (
                 <>
                   <Check size={12} className="text-green" />
                   <span>Salvo localmente</span>
@@ -137,30 +150,34 @@ export default function EditorPage() {
           <div className={styles.exportMenu}>
             <button
               className="btn btn-ghost"
-              onClick={() => setShowExportMenu(!showExportMenu)}
+              onClick={() => !isExporting && setShowExportMenu(!showExportMenu)}
               aria-label="Abrir menu de exportação"
-              title="Exportar documento"
+              title={isExporting ? 'Exportação em andamento' : 'Exportar documento'}
+              aria-busy={isExporting}
+              disabled={isExporting}
             >
-              <Download size={16} /> Exportar <ChevronDown size={14} />
+              {isExporting ? <Loader2 size={16} className={styles.inlineSpinner} /> : <Download size={16} />}
+              {isExporting ? 'Exportando...' : 'Exportar'}
+              <ChevronDown size={14} />
             </button>
 
             {showExportMenu && (
               <div className={styles.menuDropdown}>
                 {doc.type === 'text' && (
-                  <button className={styles.menuItem} onClick={() => handleExport('docx')}>
+                  <button className={styles.menuItem} disabled={isExporting} onClick={() => handleExport('docx')}>
                     <FileText size={14} /> Word (.docx)
                   </button>
                 )}
                 {doc.type === 'spreadsheet' && (
-                  <button className={styles.menuItem} onClick={() => handleExport('xlsx')}>
+                  <button className={styles.menuItem} disabled={isExporting} onClick={() => handleExport('xlsx')}>
                     <Sheet size={14} /> Excel (.xlsx)
                   </button>
                 )}
-                <button className={styles.menuItem} onClick={() => handleExport('pdf')}>
+                <button className={styles.menuItem} disabled={isExporting} onClick={() => handleExport('pdf')}>
                   <Printer size={14} /> PDF (.pdf)
                 </button>
                 <div className={styles.menuDivider} />
-                <button className={styles.menuItem} onClick={() => handleExport('json')}>
+                <button className={styles.menuItem} disabled={isExporting} onClick={() => handleExport('json')}>
                   <FileJson size={14} /> Dados Brutos (.json)
                 </button>
               </div>
