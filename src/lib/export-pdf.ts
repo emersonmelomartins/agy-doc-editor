@@ -21,7 +21,14 @@ export async function exportToPdf(elementId: string, filename: string): Promise<
       }
 
       const pageImageData = pageCanvas.toDataURL('image/jpeg', 0.98);
-      pdf.addImage(pageImageData, 'JPEG', 0, 0, pageWidth, pageHeightMm);
+      const sourceRatio = pageCanvas.width / Math.max(1, pageCanvas.height);
+      const pageRatio = pageWidth / pageHeightMm;
+      const drawWidth = sourceRatio >= pageRatio ? pageWidth : pageHeightMm * sourceRatio;
+      const drawHeight = sourceRatio >= pageRatio ? pageWidth / sourceRatio : pageHeightMm;
+      const offsetX = (pageWidth - drawWidth) / 2;
+      const offsetY = (pageHeightMm - drawHeight) / 2;
+
+      pdf.addImage(pageImageData, 'JPEG', offsetX, offsetY, drawWidth, drawHeight);
     });
 
     pdf.save(buildExportFileName(filename, 'pdf'));

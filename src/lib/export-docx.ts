@@ -11,6 +11,7 @@ import {
   Table,
   TableCell,
   TableRow,
+  TextWrappingType,
   TextRun,
   WidthType,
 } from 'docx';
@@ -175,6 +176,23 @@ async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> 
     }, 'image/png');
   });
   return new Uint8Array(await blob.arrayBuffer());
+}
+
+function fitCanvasToA4(canvas: HTMLCanvasElement) {
+  const sourceRatio = canvas.width / Math.max(1, canvas.height);
+  const targetRatio = A4_WIDTH_PX / A4_HEIGHT_PX;
+
+  if (sourceRatio >= targetRatio) {
+    const width = A4_WIDTH_PX;
+    const height = Math.round(width / sourceRatio);
+    const offsetY = Math.round((A4_HEIGHT_PX - height) / 2);
+    return { width, height, offsetX: 0, offsetY };
+  }
+
+  const height = A4_HEIGHT_PX;
+  const width = Math.round(height * sourceRatio);
+  const offsetX = Math.round((A4_WIDTH_PX - width) / 2);
+  return { width, height, offsetX, offsetY: 0 };
 }
 
 function asNumber(value: unknown, fallback: number): number {
@@ -358,10 +376,13 @@ export async function exportToDocx(jsonContent: string, filename: string): Promi
     if (liveElement) {
       const html2canvas = (await import('html2canvas')).default;
       const pageCanvases = await capturePrintPages(liveElement, html2canvas);
-      const pageImages = await Promise.all(pageCanvases.map((canvas) => canvasToPngBytes(canvas)));
+      const pageImages = await Promise.all(pageCanvases.map(async (canvas) => ({
+        data: await canvasToPngBytes(canvas),
+        fit: fitCanvasToA4(canvas),
+      })));
 
       const visualDoc = new Document({
-        sections: pageImages.map((imageData) => ({
+        sections: pageImages.map((pageImage) => ({
           properties: {
             page: {
               size: { width: A4_WIDTH_TWIP, height: A4_HEIGHT_TWIP },
@@ -370,12 +391,17 @@ export async function exportToDocx(jsonContent: string, filename: string): Promi
           },
           children: [
             new Paragraph({
-              spacing: { before: 0, after: 0, line: 240 },
+              spacing: { before: 0, after: 0 },
               children: [
                 new ImageRun({
-                  data: imageData,
+                  data: pageImage.data,
                   type: 'png',
-                  transformation: { width: A4_WIDTH_PX, height: A4_HEIGHT_PX },
+                  transformation: { width: pageImage.fit.width, height: pageImage.fit.height },
+                  floating: {
+                    horizontalPosition: { offset: pageImage.fit.offsetX },
+                    verticalPosition: { offset: pageImage.fit.offsetY },
+                    wrap: { type: TextWrappingType.NONE },
+                  },
                 }),
               ],
             }),

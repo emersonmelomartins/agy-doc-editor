@@ -2,6 +2,7 @@ const A4_PAGE_WIDTH_PX = 794;
 const A4_PAGE_HEIGHT_PX = 1123;
 
 type Html2CanvasFn = (element: HTMLElement, options: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+type CaptureCrop = { x: number; y: number; width: number; height: number };
 
 function waitForRaf(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -26,12 +27,19 @@ async function waitForImages(container: HTMLElement): Promise<void> {
   }));
 }
 
-function splitCanvasByPageHeight(canvas: HTMLCanvasElement, pageHeightPxOnCanvas: number): HTMLCanvasElement[] {
+function splitCanvasByPageHeight(
+  canvas: HTMLCanvasElement,
+  pageHeightPxOnCanvas: number,
+  boundaryCompensationPx: number = 0
+): HTMLCanvasElement[] {
   const pages: HTMLCanvasElement[] = [];
   if (pageHeightPxOnCanvas <= 0) return [canvas];
 
   for (let pageIndex = 0; ; pageIndex++) {
-    const sourceY = pageIndex * pageHeightPxOnCanvas;
+    const nominalY = pageIndex * pageHeightPxOnCanvas;
+    const sourceY = pageIndex === 0
+      ? nominalY
+      : Math.max(0, nominalY - boundaryCompensationPx);
     if (sourceY >= canvas.height - 2) break;
 
     const sourceHeight = Math.min(pageHeightPxOnCanvas, canvas.height - sourceY);
@@ -75,32 +83,91 @@ function isCanvasLikelyBlank(canvas: HTMLCanvasElement): boolean {
   return nonWhite / sampled < 0.004;
 }
 
-async function renderWithFallback(html2canvas: Html2CanvasFn, element: HTMLElement): Promise<HTMLCanvasElement> {
-  const primary = await html2canvas(element, {
+function isCanvasRenderInvalid(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return true;
+
+  const stepX = Math.max(1, Math.floor(canvas.width / 48));
+  const stepY = Math.max(1, Math.floor(canvas.height / 48));
+  let sampled = 0;
+  let nearWhite = 0;
+  let nearBlack = 0;
+  let mostlyTransparent = 0;
+
+  for (let y = 0; y < canvas.height; y += stepY) {
+    for (let x = 0; x < canvas.width; x += stepX) {
+      const p = ctx.getImageData(x, y, 1, 1).data;
+      const r = p[0] ?? 255;
+      const g = p[1] ?? 255;
+      const b = p[2] ?? 255;
+      const a = p[3] ?? 255;
+      sampled += 1;
+
+      if (a < 8) mostlyTransparent += 1;
+      if (r > 247 && g > 247 && b > 247 && a > 245) nearWhite += 1;
+      if (r < 8 && g < 8 && b < 8 && a > 245) nearBlack += 1;
+    }
+  }
+
+  if (sampled === 0) return true;
+  const whiteRatio = nearWhite / sampled;
+  const blackRatio = nearBlack / sampled;
+  const transparentRatio = mostlyTransparent / sampled;
+
+  if (transparentRatio > 0.95) return true;
+  if (blackRatio > 0.95) return true;
+  if (whiteRatio > 0.995 || isCanvasLikelyBlank(canvas)) return true;
+  return false;
+}
+
+function buildRenderOptions(foreignObjectRendering: boolean, crop?: CaptureCrop): Record<string, unknown> {
+  const base: Record<string, unknown> = {
     scale: 2,
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
-    foreignObjectRendering: true,
-    imageTimeout: 0,
-    removeContainer: true,
-  });
-
-  if (!isCanvasLikelyBlank(primary)) return primary;
-
-  const fallback = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-    logging: false,
-    foreignObjectRendering: false,
+    foreignObjectRendering,
     imageTimeout: 0,
     removeContainer: true,
     scrollX: 0,
     scrollY: 0,
-  });
+    onclone: (clonedDocument: Document) => {
+      clonedDocument.documentElement.style.background = '#ffffff';
+      clonedDocument.body.style.background = '#ffffff';
+      clonedDocument.documentElement.style.colorScheme = 'light';
+      clonedDocument.body.style.colorScheme = 'light';
+    },
+  };
 
-  return fallback;
+  if (!crop) return base;
+  return {
+    ...base,
+    x: crop.x,
+    y: crop.y,
+    width: crop.width,
+    height: crop.height,
+    windowWidth: crop.width,
+    windowHeight: crop.height,
+  };
+}
+
+async function renderWithFallback(
+  html2canvas: Html2CanvasFn,
+  element: HTMLElement,
+  crop?: CaptureCrop
+): Promise<HTMLCanvasElement> {
+  const attempts = [true, false, true];
+
+  let lastCanvas: HTMLCanvasElement | null = null;
+  for (const foreignObjectRendering of attempts) {
+    const canvas = await html2canvas(element, buildRenderOptions(foreignObjectRendering, crop));
+    lastCanvas = canvas;
+    if (!isCanvasRenderInvalid(canvas)) {
+      return canvas;
+    }
+  }
+
+  return lastCanvas ?? await html2canvas(element, buildRenderOptions(false, crop));
 }
 
 export async function capturePrintPages(element: HTMLElement, html2canvas: Html2CanvasFn): Promise<HTMLCanvasElement[]> {
@@ -132,17 +199,23 @@ export async function capturePrintPages(element: HTMLElement, html2canvas: Html2
     await waitForRaf();
     await waitForRaf();
 
-    const fullCanvas = await renderWithFallback(html2canvas, element);
-
     if (!isPagedDocument) {
+      const fullCanvas = await renderWithFallback(html2canvas, element);
       const pageHeightPxOnCanvas = Math.round((fullCanvas.width * 297) / 210);
       return splitCanvasByPageHeight(fullCanvas, pageHeightPxOnCanvas);
     }
 
-    const scaleRatio = fullCanvas.width / A4_PAGE_WIDTH_PX;
-    const pageHeightPxOnCanvas = Math.max(1, Math.round(A4_PAGE_HEIGHT_PX * scaleRatio));
-    const pages = splitCanvasByPageHeight(fullCanvas, pageHeightPxOnCanvas);
-    return pages.slice(0, expectedPageCount);
+    const pages: HTMLCanvasElement[] = [];
+    for (let pageIndex = 0; pageIndex < expectedPageCount; pageIndex++) {
+      const pageCanvas = await renderWithFallback(html2canvas, element, {
+        x: 0,
+        y: pageIndex * A4_PAGE_HEIGHT_PX,
+        width: A4_PAGE_WIDTH_PX,
+        height: A4_PAGE_HEIGHT_PX,
+      });
+      pages.push(pageCanvas);
+    }
+    return pages;
   } finally {
     element.style.background = originalBackground;
     element.style.boxShadow = originalBoxShadow;
