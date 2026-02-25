@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Outlet,
   createRootRoute,
   createRoute,
   createRouter,
   lazyRouteComponent,
+  useNavigate,
 } from '@tanstack/react-router';
 import { ThemeProvider } from '@/components/theme-provider';
 import ThemeToggle from '@/components/theme-toggle';
@@ -16,6 +17,16 @@ function RootLayout() {
       <ThemeToggle />
     </ThemeProvider>
   );
+}
+
+function NotFoundRedirect() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    navigate({ to: '/', replace: true });
+  }, [navigate]);
+
+  return null;
 }
 
 const rootRoute = createRootRoute({
@@ -40,10 +51,17 @@ const componentsRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/components-page')),
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, editorRoute, componentsRoute]);
+const notFoundRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '*',
+  component: NotFoundRedirect,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, editorRoute, componentsRoute, notFoundRoute]);
 
 export const router = createRouter({
   routeTree,
+  notFoundRoute,
 });
 
 declare module '@tanstack/react-router' {
