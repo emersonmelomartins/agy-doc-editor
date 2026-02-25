@@ -143,6 +143,45 @@ function normalizeTableFirstRowAsHeader(doc: { content?: TipTapNode[] }): void {
   }
 }
 
+function nodeHasEditableText(node: TipTapNode | undefined): boolean {
+  if (!node) return false;
+  if (node.type === 'text' && typeof node.text === 'string' && node.text.trim().length > 0) {
+    return true;
+  }
+  if (!Array.isArray(node.content)) return false;
+  return node.content.some((child) => nodeHasEditableText(child));
+}
+
+function docHasEditableText(doc: { content?: TipTapNode[] }): boolean {
+  if (!Array.isArray(doc.content)) return false;
+  return doc.content.some((node) => nodeHasEditableText(node));
+}
+
+function nodeContainsImage(node: TipTapNode | undefined): boolean {
+  if (!node) return false;
+  if (node.type === 'image') return true;
+  if (!Array.isArray(node.content)) return false;
+  return node.content.some((child) => nodeContainsImage(child));
+}
+
+function extractTopLevelImageBlocks(doc: { content?: TipTapNode[] }): TipTapNode[] {
+  if (!Array.isArray(doc.content)) return [];
+  return doc.content.filter((node) => nodeContainsImage(node));
+}
+
+function buildDocxEditableFallbackContent(rawText: string, imageBlocks: TipTapNode[]): string {
+  const parsedFallback = JSON.parse(plainTextToTipTapContent(rawText)) as {
+    type: 'doc';
+    content?: TipTapNode[];
+  };
+  const fallbackContent = Array.isArray(parsedFallback.content) ? parsedFallback.content : [];
+  if (imageBlocks.length > 0) {
+    fallbackContent.push(...imageBlocks);
+  }
+  parsedFallback.content = fallbackContent;
+  return JSON.stringify(parsedFallback);
+}
+
 /**
  * Import DOCX via mammoth (HTML) then TipTap JSON.
  * Limitations: Word TOC (sumário) is not converted as a clickable index; page breaks are not
@@ -172,6 +211,18 @@ export async function importDocxFile(file: File): Promise<{ name: string; conten
     const extensions = getTextEditorExtensions();
     const doc = generateJSON(html, extensions);
     normalizeTableFirstRowAsHeader(doc);
+
+    if (!docHasEditableText(doc)) {
+      const extracted = await mammoth.extractRawText({ arrayBuffer });
+      const rawText = typeof extracted?.value === 'string' ? extracted.value : '';
+      if (rawText.trim().length > 0) {
+        return {
+          name,
+          content: buildDocxEditableFallbackContent(rawText, extractTopLevelImageBlocks(doc)),
+        };
+      }
+    }
+
     return {
       name,
       content: JSON.stringify(doc),

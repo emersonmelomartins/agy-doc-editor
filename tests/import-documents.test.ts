@@ -316,6 +316,76 @@ test('importDocxFile accepts generated docs without content array', async () => 
   assert.equal(parsed.type, 'doc');
 });
 
+test('importDocxFile falls back to editable text when html conversion returns only images', async () => {
+  setImportDocumentsDepsForTests({
+    loadMammoth: async () => ({
+      convertToHtml: async () => ({ value: '<p><img src="data:image/png;base64,AAAA" /></p>' }),
+      extractRawText: async () => ({ value: 'Texto editavel do DOCX' }),
+      images: {
+        imgElement: (handler: (image: unknown) => Promise<{ src: string }>) => handler,
+      },
+    }),
+    loadTiptapHtml: async () => ({
+      generateJSON: () => ({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'image', attrs: { src: 'data:image/png;base64,AAAA' } }],
+          },
+        ],
+      }),
+    }),
+    loadTextEditorExtensions: async () => ({
+      getTextEditorExtensions: () => [],
+    }),
+  });
+
+  const file = new File([new Uint8Array([6, 6, 6])], 'image-only.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+
+  const imported = await importDocxFile(file);
+  const parsed = JSON.parse(imported.content);
+  assert.match(getAllTextFromDoc(parsed), /Texto editavel do DOCX/);
+  assert.equal(docHasNodeType(parsed, 'image'), true);
+});
+
+test('importDocxFile keeps image-only content when raw text extraction is empty', async () => {
+  setImportDocumentsDepsForTests({
+    loadMammoth: async () => ({
+      convertToHtml: async () => ({ value: '<p><img src="data:image/png;base64,BBBB" /></p>' }),
+      extractRawText: async () => ({ value: '   ' }),
+      images: {
+        imgElement: (handler: (image: unknown) => Promise<{ src: string }>) => handler,
+      },
+    }),
+    loadTiptapHtml: async () => ({
+      generateJSON: () => ({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'image', attrs: { src: 'data:image/png;base64,BBBB' } }],
+          },
+        ],
+      }),
+    }),
+    loadTextEditorExtensions: async () => ({
+      getTextEditorExtensions: () => [],
+    }),
+  });
+
+  const file = new File([new Uint8Array([7, 7, 7])], 'image-only-empty-raw.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+
+  const imported = await importDocxFile(file);
+  const parsed = JSON.parse(imported.content);
+  assert.equal(docHasNodeType(parsed, 'image'), true);
+  assert.equal(getAllTextFromDoc(parsed).trim(), '');
+});
+
 test('importPdfFile works when default worker URL import fails', async () => {
   const fakePdfJs = {
     GlobalWorkerOptions: { workerSrc: '' },
