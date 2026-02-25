@@ -169,6 +169,11 @@ function extractTopLevelImageBlocks(doc: { content?: TipTapNode[] }): TipTapNode
   return doc.content.filter((node) => nodeContainsImage(node));
 }
 
+function docContainsImages(doc: { content?: TipTapNode[] }): boolean {
+  if (!Array.isArray(doc.content)) return false;
+  return doc.content.some((node) => nodeContainsImage(node));
+}
+
 function buildDocxEditableFallbackContent(rawText: string, imageBlocks: TipTapNode[]): string {
   const parsedFallback = JSON.parse(plainTextToTipTapContent(rawText)) as {
     type: 'doc';
@@ -212,7 +217,7 @@ export async function importDocxFile(file: File): Promise<{ name: string; conten
     const doc = generateJSON(html, extensions);
     normalizeTableFirstRowAsHeader(doc);
 
-    if (!docHasEditableText(doc)) {
+    if (!docHasEditableText(doc) && docContainsImages(doc)) {
       const extracted = await mammoth.extractRawText({ arrayBuffer });
       const rawText = typeof extracted?.value === 'string' ? extracted.value : '';
       if (rawText.trim().length > 0) {
