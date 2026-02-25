@@ -152,9 +152,8 @@ function nodeHasEditableText(node: TipTapNode | undefined): boolean {
   return node.content.some((child) => nodeHasEditableText(child));
 }
 
-function docHasEditableText(doc: { content?: TipTapNode[] }): boolean {
-  if (!Array.isArray(doc.content)) return false;
-  return doc.content.some((node) => nodeHasEditableText(node));
+function docHasEditableText(nodes: Array<TipTapNode | null | undefined>): boolean {
+  return nodes.some((node) => nodeHasEditableText(node ?? undefined));
 }
 
 function nodeContainsImage(node: TipTapNode | undefined): boolean {
@@ -164,26 +163,22 @@ function nodeContainsImage(node: TipTapNode | undefined): boolean {
   return node.content.some((child) => nodeContainsImage(child));
 }
 
-function extractTopLevelImageBlocks(doc: { content?: TipTapNode[] }): TipTapNode[] {
-  if (!Array.isArray(doc.content)) return [];
-  return doc.content.filter((node) => nodeContainsImage(node));
+function extractTopLevelImageBlocks(nodes: TipTapNode[]): TipTapNode[] {
+  return nodes.filter((node) => nodeContainsImage(node));
 }
 
-function docContainsImages(doc: { content?: TipTapNode[] }): boolean {
-  if (!Array.isArray(doc.content)) return false;
-  return doc.content.some((node) => nodeContainsImage(node));
+function docContainsImages(nodes: Array<TipTapNode | null | undefined>): boolean {
+  return nodes.some((node) => nodeContainsImage(node ?? undefined));
 }
 
 function buildDocxEditableFallbackContent(rawText: string, imageBlocks: TipTapNode[]): string {
   const parsedFallback = JSON.parse(plainTextToTipTapContent(rawText)) as {
     type: 'doc';
-    content?: TipTapNode[];
+    content: TipTapNode[];
   };
-  const fallbackContent = Array.isArray(parsedFallback.content) ? parsedFallback.content : [];
   if (imageBlocks.length > 0) {
-    fallbackContent.push(...imageBlocks);
+    parsedFallback.content.push(...imageBlocks);
   }
-  parsedFallback.content = fallbackContent;
   return JSON.stringify(parsedFallback);
 }
 
@@ -216,14 +211,15 @@ export async function importDocxFile(file: File): Promise<{ name: string; conten
     const extensions = getTextEditorExtensions();
     const doc = generateJSON(html, extensions);
     normalizeTableFirstRowAsHeader(doc);
+    const docContent = Array.isArray(doc.content) ? doc.content : [];
 
-    if (!docHasEditableText(doc) && docContainsImages(doc)) {
+    if (!docHasEditableText(docContent) && docContainsImages(docContent)) {
       const extracted = await mammoth.extractRawText({ arrayBuffer });
       const rawText = typeof extracted?.value === 'string' ? extracted.value : '';
       if (rawText.trim().length > 0) {
         return {
           name,
-          content: buildDocxEditableFallbackContent(rawText, extractTopLevelImageBlocks(doc)),
+          content: buildDocxEditableFallbackContent(rawText, extractTopLevelImageBlocks(docContent)),
         };
       }
     }

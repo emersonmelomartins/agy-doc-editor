@@ -329,6 +329,8 @@ test('importDocxFile falls back to editable text when html conversion returns on
       generateJSON: () => ({
         type: 'doc',
         content: [
+          null,
+          { type: 'paragraph' },
           {
             type: 'paragraph',
             content: [{ type: 'image', attrs: { src: 'data:image/png;base64,AAAA' } }],
@@ -377,6 +379,41 @@ test('importDocxFile keeps image-only content when raw text extraction is empty'
   });
 
   const file = new File([new Uint8Array([7, 7, 7])], 'image-only-empty-raw.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+
+  const imported = await importDocxFile(file);
+  const parsed = JSON.parse(imported.content);
+  assert.equal(docHasNodeType(parsed, 'image'), true);
+  assert.equal(getAllTextFromDoc(parsed).trim(), '');
+});
+
+test('importDocxFile keeps image-only content when raw text extraction is not a string', async () => {
+  setImportDocumentsDepsForTests({
+    loadMammoth: async () => ({
+      convertToHtml: async () => ({ value: '<p><img src="data:image/png;base64,CCCC" /></p>' }),
+      extractRawText: async () => ({ value: 123 }),
+      images: {
+        imgElement: (handler: (image: unknown) => Promise<{ src: string }>) => handler,
+      },
+    }),
+    loadTiptapHtml: async () => ({
+      generateJSON: () => ({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'image', attrs: { src: 'data:image/png;base64,CCCC' } }],
+          },
+        ],
+      }),
+    }),
+    loadTextEditorExtensions: async () => ({
+      getTextEditorExtensions: () => [],
+    }),
+  });
+
+  const file = new File([new Uint8Array([8, 8, 8])], 'image-only-non-string-raw.docx', {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   });
 
