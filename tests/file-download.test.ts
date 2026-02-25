@@ -114,3 +114,115 @@ test('downloadBlob infers extension when filename has no extension', () => {
   (globalThis as any).window = originalWindow;
   (globalThis as any).URL = originalUrl;
 });
+
+test('downloadBlob infers common image and text extensions from mime type', () => {
+  const originalWindow = (globalThis as any).window;
+  const originalUrl = (globalThis as any).URL;
+
+  const downloads: string[] = [];
+  const fakeLink = {
+    href: '',
+    download: '',
+    rel: '',
+    click: () => {
+      downloads.push(fakeLink.download);
+    },
+    remove: () => undefined,
+  };
+
+  (globalThis as any).window = {
+    document: {
+      createElement: () => fakeLink,
+      body: { append: () => undefined },
+    },
+  };
+
+  (globalThis as any).URL = {
+    createObjectURL: () => 'blob:test-url',
+    revokeObjectURL: () => undefined,
+  };
+
+  downloadBlob(new Blob(['csv'], { type: 'text/csv' }), 'dados');
+  downloadBlob(new Blob(['img'], { type: 'image/png' }), 'imagem');
+  downloadBlob(new Blob(['img'], { type: 'image/jpeg' }), 'foto');
+  downloadBlob(new Blob(['img'], { type: 'image/gif' }), 'animacao');
+
+  assert.deepEqual(downloads, ['dados.csv', 'imagem.png', 'foto.jpg', 'animacao.gif']);
+
+  (globalThis as any).window = originalWindow;
+  (globalThis as any).URL = originalUrl;
+});
+
+test('downloadBlob keeps filename when mime type extension is unknown', () => {
+  const originalWindow = (globalThis as any).window;
+  const originalUrl = (globalThis as any).URL;
+
+  let downloadedName = '';
+  const fakeLink = {
+    href: '',
+    download: '',
+    rel: '',
+    click: () => {
+      downloadedName = fakeLink.download;
+    },
+    remove: () => undefined,
+  };
+
+  (globalThis as any).window = {
+    document: {
+      createElement: () => fakeLink,
+      body: { append: () => undefined },
+    },
+  };
+
+  (globalThis as any).URL = {
+    createObjectURL: () => 'blob:test-url',
+    revokeObjectURL: () => undefined,
+  };
+
+  downloadBlob(new Blob(['unknown'], { type: 'application/x-custom-format' }), 'arquivo-sem-ext');
+  assert.equal(downloadedName, 'arquivo-sem-ext');
+
+  (globalThis as any).window = originalWindow;
+  (globalThis as any).URL = originalUrl;
+});
+
+test('downloadBlob infers pdf, json and xlsx extensions from mime type', () => {
+  const originalWindow = (globalThis as any).window;
+  const originalUrl = (globalThis as any).URL;
+
+  const downloads: string[] = [];
+  const fakeLink = {
+    href: '',
+    download: '',
+    rel: '',
+    click: () => {
+      downloads.push(fakeLink.download);
+    },
+    remove: () => undefined,
+  };
+
+  (globalThis as any).window = {
+    document: {
+      createElement: () => fakeLink,
+      body: { append: () => undefined },
+    },
+  };
+
+  (globalThis as any).URL = {
+    createObjectURL: () => 'blob:test-url',
+    revokeObjectURL: () => undefined,
+  };
+
+  downloadBlob(new Blob(['pdf'], { type: 'application/pdf' }), 'arquivo-pdf');
+  downloadBlob(new Blob(['json'], { type: 'application/json' }), 'arquivo-json');
+  downloadBlob(
+    new Blob(['xlsx'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    'arquivo-xlsx'
+  );
+
+  assert.deepEqual(downloads, ['arquivo-pdf.pdf', 'arquivo-json.json', 'arquivo-xlsx.xlsx']);
+
+  (globalThis as any).window = originalWindow;
+  (globalThis as any).URL = originalUrl;
+});

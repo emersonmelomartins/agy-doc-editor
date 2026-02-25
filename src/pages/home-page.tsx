@@ -10,7 +10,7 @@ import DocumentCard from '@/components/document-card';
 import BrandLogo from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { FileText, Sheet, Plus, Search, LayoutGrid, List, Sparkles, Upload, LayoutTemplate } from 'lucide-react';
-import styles from '@/styles/home.module.css';
+import styles from './home-page.module.css';
 
 export default function HomePage() {
   const navigate = useNavigate();

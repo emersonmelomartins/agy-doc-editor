@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Document as DocxDocument, Packer, Paragraph, ImageRun } from 'docx';
 import { jsPDF } from 'jspdf';
@@ -9,7 +9,13 @@ import {
   importPdfFile,
   importPdfFileAsPageImages,
   plainTextToTipTapContent,
+  resetImportDocumentsDepsForTests,
+  setImportDocumentsDepsForTests,
 } from '../src/lib/import-documents.ts';
+
+afterEach(() => {
+  resetImportDocumentsDepsForTests();
+});
 
 /** Collects all text from a TipTap doc tree (any structure). */
 function getAllTextFromDoc(parsed: { content?: Array<{ type?: string; content?: unknown[]; text?: string }> }): string {
@@ -201,23 +207,374 @@ test('importDocxFile with image document preserves text', async () => {
   }
 });
 
-test('importPdfFileAsPageImages produces one image per page', async (t) => {
-  if (typeof document === 'undefined' || !document.createElement) {
-    t.skip();
-    return;
-  }
-  const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-  pdf.text('Page 1', 40, 60);
-  const pdfArrayBuffer = pdf.output('arraybuffer');
-  const file = new File([pdfArrayBuffer], 'one-page.pdf', { type: 'application/pdf' });
+test('importDocxFile falls back to plain text when html conversion fails', async () => {
+  setImportDocumentsDepsForTests({
+    loadMammoth: async () => ({
+      convertToHtml: async () => {
+        throw new Error('html conversion failure');
+      },
+      extractRawText: async () => ({ value: 'fallback line' }),
+      images: {
+        imgElement: (handler: (image: unknown) => Promise<{ src: string }>) => handler,
+      },
+    }),
+    loadTiptapHtml: async () => ({
+      generateJSON: () => ({ type: 'doc', content: [] }),
+    }),
+    loadTextEditorExtensions: async () => ({
+      getTextEditorExtensions: () => [],
+    }),
+  });
 
-  const imported = await importPdfFileAsPageImages(file);
+  const file = new File([new Uint8Array([1, 2, 3])], 'fallback.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+  const imported = await importDocxFile(file);
+  assert.equal(imported.name, 'fallback');
+  assert.match(imported.content, /fallback line/);
+});
+
+test('importDocxFile sanitizes spacing styles and normalizes first table row as header', async () => {
+  let receivedHtml = '';
+
+  setImportDocumentsDepsForTests({
+    loadMammoth: async () => ({
+      convertToHtml: async () => ({
+        value:
+          '<p style="line-height:1.8;margin:0;padding:0;">A</p>' +
+          '<p style="line-height:1.4;color:red;">B</p>' +
+          '<p style="">C</p>',
+      }),
+      extractRawText: async () => ({ value: 'unused fallback text' }),
+      images: {
+        imgElement: (handler: (image: unknown) => Promise<{ src: string }>) => handler,
+      },
+    }),
+    loadTiptapHtml: async () => ({
+      generateJSON: (html: string) => {
+        receivedHtml = html;
+        return {
+          type: 'doc',
+          content: [
+            {
+              type: 'table',
+              content: [
+                {
+                  type: 'tableRow',
+                  content: [{ type: 'tableCell', content: [{ type: 'paragraph', content: [] }] }],
+                },
+              ],
+            },
+          ],
+        };
+      },
+    }),
+    loadTextEditorExtensions: async () => ({
+      getTextEditorExtensions: () => [],
+    }),
+  });
+
+  const file = new File([new Uint8Array([7, 8, 9])], 'table.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+  const imported = await importDocxFile(file);
+
+  assert.equal(imported.name, 'table');
+  assert.match(receivedHtml, /color\s*:\s*red/i);
+  assert.match(receivedHtml, /style=""/);
+  assert.equal(receivedHtml.includes('line-height'), false);
+  assert.equal(receivedHtml.includes('margin:'), false);
+  assert.equal(receivedHtml.includes('padding:'), false);
+
   const parsed = JSON.parse(imported.content);
-  assert.equal(imported.name, 'one-page');
+  const firstCell = parsed.content[0].content[0].content[0];
+  assert.equal(firstCell.type, 'tableHeader');
+});
+
+test('importDocxFile accepts generated docs without content array', async () => {
+  setImportDocumentsDepsForTests({
+    loadMammoth: async () => ({
+      convertToHtml: async () => ({ value: '<p>sem content array</p>' }),
+      extractRawText: async () => ({ value: 'unused fallback text' }),
+      images: {
+        imgElement: (handler: (image: unknown) => Promise<{ src: string }>) => handler,
+      },
+    }),
+    loadTiptapHtml: async () => ({
+      generateJSON: () => ({ type: 'doc' }),
+    }),
+    loadTextEditorExtensions: async () => ({
+      getTextEditorExtensions: () => [],
+    }),
+  });
+
+  const file = new File([new Uint8Array([4, 4, 4])], 'without-content.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+  const imported = await importDocxFile(file);
+  const parsed = JSON.parse(imported.content);
   assert.equal(parsed.type, 'doc');
-  assert.ok(Array.isArray(parsed.content));
-  assert.ok(docHasNodeType(parsed, 'image'));
-  const imageNodes = parsed.content.filter((n: any) => n.type === 'paragraph').flatMap((p: any) => (p.content ?? []).filter((c: any) => c.type === 'image'));
-  assert.equal(imageNodes.length, 1);
-  assert.ok(imageNodes[0].attrs?.src?.startsWith('data:image/jpeg'));
+});
+
+test('importPdfFile works when default worker URL import fails', async () => {
+  const fakePdfJs = {
+    GlobalWorkerOptions: { workerSrc: '' },
+    getDocument: () => ({
+      promise: Promise.resolve({
+        numPages: 1,
+        getPage: async () => ({
+          getTextContent: async () => ({
+            items: [{ str: 'Default Worker' }],
+          }),
+        }),
+      }),
+    }),
+  };
+
+  setImportDocumentsDepsForTests({
+    loadPdfJs: async () => fakePdfJs,
+  });
+
+  const file = new File([new Uint8Array([1])], 'default-worker.pdf', { type: 'application/pdf' });
+  const imported = await importPdfFile(file);
+  assert.match(imported.content, /Default Worker/);
+});
+
+test('importPdfFile ignores worker loader exceptions and keeps import flow', async () => {
+  const fakePdfJs = {
+    GlobalWorkerOptions: { workerSrc: '' },
+    getDocument: () => ({
+      promise: Promise.resolve({
+        numPages: 1,
+        getPage: async () => ({
+          getTextContent: async () => ({
+            items: [{ str: 'Worker fallback' }],
+          }),
+        }),
+      }),
+    }),
+  };
+
+  setImportDocumentsDepsForTests({
+    loadPdfWorkerUrl: async () => {
+      throw new Error('worker loader crash');
+    },
+    loadPdfJs: async () => fakePdfJs,
+  });
+
+  const file = new File([new Uint8Array([2])], 'worker-fallback.pdf', { type: 'application/pdf' });
+  const imported = await importPdfFile(file);
+  assert.match(imported.content, /Worker fallback/);
+});
+
+test('importPdfFile caches worker url across calls', async () => {
+  let workerLoadCount = 0;
+  const fakePdfJs = {
+    GlobalWorkerOptions: { workerSrc: '' },
+    getDocument: () => ({
+      promise: Promise.resolve({
+        numPages: 1,
+        getPage: async () => ({
+          getTextContent: async () => ({
+            items: [{ str: 'Linha', hasEOL: true }],
+          }),
+        }),
+      }),
+    }),
+  };
+
+  setImportDocumentsDepsForTests({
+    loadPdfWorkerUrl: async () => {
+      workerLoadCount += 1;
+      return 'mock-worker.js';
+    },
+    loadPdfJs: async () => fakePdfJs,
+  });
+
+  const file = new File([new Uint8Array([9, 9, 9])], 'cache.pdf', { type: 'application/pdf' });
+  await importPdfFile(file);
+  await importPdfFile(file);
+
+  assert.equal(workerLoadCount, 1);
+  assert.equal(fakePdfJs.GlobalWorkerOptions.workerSrc, 'mock-worker.js');
+});
+
+test('importPdfFile wraps low-level errors with user-friendly message', async () => {
+  setImportDocumentsDepsForTests({
+    loadPdfWorkerUrl: async () => null,
+    loadPdfJs: async () => ({
+      GlobalWorkerOptions: { workerSrc: '' },
+      getDocument: () => ({ promise: Promise.reject(new Error('boom')) }),
+    }),
+  });
+
+  const file = new File([new Uint8Array([0])], 'broken.pdf', { type: 'application/pdf' });
+  await assert.rejects(
+    () => importPdfFile(file),
+    /Nao foi possivel ler o PDF/
+  );
+});
+
+test('importPdfFile suppresses pdfjs font warnings but keeps other warnings', async () => {
+  const originalWarn = console.warn;
+  const forwardedWarnings: string[] = [];
+  console.warn = (...args: unknown[]) => {
+    forwardedWarnings.push(String(args[0] ?? ''));
+  };
+
+  try {
+    setImportDocumentsDepsForTests({
+      loadPdfWorkerUrl: async () => null,
+      loadPdfJs: async () => ({
+        GlobalWorkerOptions: { workerSrc: '' },
+        getDocument: () => ({
+          promise: Promise.resolve({
+            numPages: 1,
+            getPage: async () => ({
+              getTextContent: async () => {
+                console.warn('TT: invalid function');
+                console.warn('Visible warning');
+                console.warn({ source: 'pdfjs', detail: 'object warning' });
+                return { items: [{ str: 'Texto' }] };
+              },
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const file = new File([new Uint8Array([3])], 'warnings.pdf', { type: 'application/pdf' });
+    await importPdfFile(file);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  assert.equal(forwardedWarnings.some((warning) => warning.includes('TT: invalid function')), false);
+  assert.equal(forwardedWarnings.some((warning) => warning.includes('Visible warning')), true);
+  assert.equal(forwardedWarnings.some((warning) => warning.includes('[object Object]')), true);
+});
+
+test('importPdfFileAsPageImages produces one image per page using mocked renderer', async () => {
+  const runtimeGlobal = globalThis as typeof globalThis & { document?: Document };
+  const originalDocument = runtimeGlobal.document;
+  runtimeGlobal.document = {
+    createElement: (_tag: string) => ({
+      width: 0,
+      height: 0,
+      getContext: () => ({}),
+      toDataURL: () => 'data:image/jpeg;base64,MOCK',
+    }),
+  } as unknown as Document;
+
+  try {
+    setImportDocumentsDepsForTests({
+      loadPdfWorkerUrl: async () => 'mock-worker.js',
+      loadPdfJs: async () => ({
+        GlobalWorkerOptions: { workerSrc: '' },
+        getDocument: () => ({
+          promise: Promise.resolve({
+            numPages: 1,
+            getPage: async () => ({
+              getViewport: ({ scale }: { scale: number }) => ({ width: 100 * scale, height: 200 * scale }),
+              render: () => ({ promise: Promise.resolve() }),
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const file = new File([new Uint8Array([1, 2, 3])], 'one-page.pdf', { type: 'application/pdf' });
+    const imported = await importPdfFileAsPageImages(file);
+    const parsed = JSON.parse(imported.content);
+    assert.equal(imported.name, 'one-page');
+    assert.equal(parsed.type, 'doc');
+    const imageNodes = parsed.content
+      .filter((n: any) => n.type === 'paragraph')
+      .flatMap((p: any) => (p.content ?? []).filter((c: any) => c.type === 'image'));
+    assert.equal(imageNodes.length, 1);
+    assert.equal(imageNodes[0].attrs.width, 794);
+    assert.ok(imageNodes[0].attrs.src.startsWith('data:image/jpeg'));
+  } finally {
+    runtimeGlobal.document = originalDocument;
+  }
+});
+
+test('importPdfFileAsPageImages switches to low scale for large documents', async () => {
+  let observedScale = 0;
+  const runtimeGlobal = globalThis as typeof globalThis & { document?: Document };
+  const originalDocument = runtimeGlobal.document;
+  runtimeGlobal.document = {
+    createElement: (_tag: string) => ({
+      width: 0,
+      height: 0,
+      getContext: () => ({}),
+      toDataURL: () => 'data:image/jpeg;base64,MOCK',
+    }),
+  } as unknown as Document;
+
+  try {
+    setImportDocumentsDepsForTests({
+      loadPdfWorkerUrl: async () => null,
+      loadPdfJs: async () => ({
+        GlobalWorkerOptions: { workerSrc: '' },
+        getDocument: () => ({
+          promise: Promise.resolve({
+            numPages: 51,
+            getPage: async () => ({
+              getViewport: ({ scale }: { scale: number }) => {
+                observedScale = scale;
+                return { width: 120, height: 240 };
+              },
+              render: () => ({ promise: Promise.resolve() }),
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const file = new File([new Uint8Array([4, 5, 6])], 'large.pdf', { type: 'application/pdf' });
+    await importPdfFileAsPageImages(file);
+    assert.equal(observedScale, 1.5);
+  } finally {
+    runtimeGlobal.document = originalDocument;
+  }
+});
+
+test('importPdfFileAsPageImages throws friendly error when canvas context is unavailable', async () => {
+  const runtimeGlobal = globalThis as typeof globalThis & { document?: Document };
+  const originalDocument = runtimeGlobal.document;
+  runtimeGlobal.document = {
+    createElement: (_tag: string) => ({
+      width: 0,
+      height: 0,
+      getContext: () => null,
+      toDataURL: () => 'data:image/jpeg;base64,MOCK',
+    }),
+  } as unknown as Document;
+
+  try {
+    setImportDocumentsDepsForTests({
+      loadPdfWorkerUrl: async () => null,
+      loadPdfJs: async () => ({
+        GlobalWorkerOptions: { workerSrc: '' },
+        getDocument: () => ({
+          promise: Promise.resolve({
+            numPages: 1,
+            getPage: async () => ({
+              getViewport: () => ({ width: 120, height: 240 }),
+              render: () => ({ promise: Promise.resolve() }),
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const file = new File([new Uint8Array([1, 2, 3])], 'broken-canvas.pdf', { type: 'application/pdf' });
+    await assert.rejects(
+      () => importPdfFileAsPageImages(file),
+      /Nao foi possivel ler o PDF/
+    );
+  } finally {
+    runtimeGlobal.document = originalDocument;
+  }
 });

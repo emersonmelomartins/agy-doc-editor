@@ -11,6 +11,7 @@ import {
   resetDocumentsRepositoryForTests,
   saveDocumentContent,
   setDocumentsRepositoryForTests,
+  updateDocumentLayout,
 } from '../src/services/documents-service.ts';
 import type { Document, DocumentLayout, DocumentType } from '../src/types/index.ts';
 import type { DocumentsRepository } from '../src/services/documents-repository.ts';
@@ -114,7 +115,9 @@ test('documents service sorts list and applies mutations through repository cont
 
   renameDocumentById(created.id, 'Report v2');
   saveDocumentContent(created.id, '{"type":"doc","content":[{"type":"paragraph"}]}');
+  updateDocumentLayout(created.id, { header: '{"type":"doc","content":[]}' });
   assert.match(findDocument(created.id)?.content ?? '', /paragraph/);
+  assert.equal(findDocument(created.id)?.layout?.header, '{"type":"doc","content":[]}');
 
   const copy = cloneDocument(created.id);
   assert.ok(copy);
