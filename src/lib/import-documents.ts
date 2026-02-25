@@ -130,6 +130,7 @@ function normalizeTableFirstRowAsHeader(doc: { content?: TipTapNode[] }): void {
   const nodes = doc.content;
   if (!Array.isArray(nodes)) return;
   for (const node of nodes) {
+    if (!node) continue;
     if (node.type === 'table' && Array.isArray(node.content) && node.content.length > 0) {
       const firstRow = node.content[0];
       if (firstRow?.type === 'tableRow' && Array.isArray(firstRow.content)) {
