@@ -106,6 +106,18 @@ A lógica fica isolada em `src/lib/pagination.ts` e testes dedicados em `tests/p
 
 Orquestração única: `src/services/export-service.ts`.
 
+## Importação DOCX
+
+- Pipeline: `src/lib/import-documents.ts` usa mammoth (`convertToHtml`) e depois `@tiptap/html` (`generateJSON`) para produzir o JSON do editor. Tabelas têm a primeira linha normalizada como cabeçalho; espaçamento de linha é sanitizado no HTML para seguir o CSS do editor.
+- Limitações conhecidas: o **sumário (TOC)** do Word não é convertido como índice clicável (o mammoth não trata o campo TOC). **Quebras de página** do documento Word não são importadas; o conteúdo fica contínuo e a paginação A4 é recalculada pelo editor.
+
+## Importação PDF
+
+- Dois modos (escolha via modal ao selecionar um PDF):
+  - **Fidelidade:** cada página do PDF é renderizada como imagem e inserida no documento (uma imagem por página); ideal para PDFs pesados ou quando se precisa de cópia fiel. Processamento página a página para não travar em documentos grandes.
+  - **Editável:** extração apenas de texto, com quebras de linha preservadas (hasEOL do pdfjs). Imagens e tabelas *dentro* do PDF não são extraídas (limitação do pdfjs no browser).
+- Implementação: `importPdfFile` (editável) e `importPdfFileAsPageImages` (fidelidade) em `src/lib/import-documents.ts`.
+
 ## Estratégia de Testes
 
 - Runner nativo do Node (`node --test`)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Document } from '@/types';
+import type { Document } from '@/types';
 import { useDocumentsStore } from '@/store/documents-store';
 import { ExportFormat, exportDocument } from '@/services/export-service';
 import {

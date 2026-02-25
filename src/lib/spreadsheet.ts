@@ -1,3 +1,5 @@
+import type { SpreadsheetMerge } from '@/types';
+
 export type SpreadsheetCell = string | number | null;
 
 export interface ParsedSpreadsheetData {
@@ -5,10 +7,21 @@ export interface ParsedSpreadsheetData {
   colHeaders: string[];
   rowCount: number;
   colCount: number;
+  colWidths?: number[];
+  rowHeights?: number[];
+  merges?: SpreadsheetMerge[];
+  cellFills?: Record<string, string>;
 }
+
+const DEFAULT_COL_WIDTH = 100;
+const DEFAULT_ROW_HEIGHT = 28;
 
 const DEFAULT_ROW_COUNT = 50;
 const DEFAULT_COL_COUNT = 26;
+const MIN_COL_WIDTH = 40;
+const MAX_COL_WIDTH = 400;
+const MIN_ROW_HEIGHT = 20;
+const MAX_ROW_HEIGHT = 200;
 
 function generateHeaders(colCount: number): string[] {
   return Array.from({ length: colCount }, (_, i) => {
@@ -35,6 +48,66 @@ function normalizeGrid(data: unknown, rowCount: number, colCount: number): Sprea
       return value === undefined ? null : (value as SpreadsheetCell);
     });
   });
+}
+
+function normalizeColWidths(raw: unknown, colCount: number): number[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, colCount)
+    .map((w) => {
+      const n = Number(w);
+      if (!Number.isFinite(n) || n < MIN_COL_WIDTH) return DEFAULT_COL_WIDTH;
+      return Math.min(MAX_COL_WIDTH, n);
+    });
+}
+
+function normalizeRowHeights(raw: unknown, rowCount: number): number[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, rowCount)
+    .map((h) => {
+      const n = Number(h);
+      if (!Number.isFinite(n) || n < MIN_ROW_HEIGHT) return DEFAULT_ROW_HEIGHT;
+      return Math.min(MAX_ROW_HEIGHT, n);
+    });
+}
+
+function isSpreadsheetMerge(m: unknown): m is SpreadsheetMerge {
+  return (
+    typeof m === 'object' &&
+    m !== null &&
+    typeof (m as SpreadsheetMerge).startRow === 'number' &&
+    typeof (m as SpreadsheetMerge).startCol === 'number' &&
+    typeof (m as SpreadsheetMerge).endRow === 'number' &&
+    typeof (m as SpreadsheetMerge).endCol === 'number'
+  );
+}
+
+function normalizeMerges(raw: unknown, rowCount: number, colCount: number): SpreadsheetMerge[] {
+  if (!Array.isArray(raw)) return [];
+  const merges: SpreadsheetMerge[] = [];
+  for (const item of raw) {
+    if (!isSpreadsheetMerge(item)) continue;
+    const startRow = Math.max(0, Math.min(item.startRow, rowCount - 1));
+    const startCol = Math.max(0, Math.min(item.startCol, colCount - 1));
+    const endRow = Math.max(startRow, Math.min(item.endRow, rowCount - 1));
+    const endCol = Math.max(startCol, Math.min(item.endCol, colCount - 1));
+    if (startRow === endRow && startCol === endCol) continue;
+    merges.push({ startRow, startCol, endRow, endCol });
+  }
+  return merges;
+}
+
+function normalizeCellFills(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'object' || raw === null) return {};
+  const out: Record<string, string> = {};
+  const keyRe = /^\d+,\d+$/;
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof key === 'string' && keyRe.test(key) && typeof value === 'string' && value.trim()) {
+      out[key] = value.trim();
+    }
+  }
+  return out;
 }
 
 function parseCellReference(reference: string): { row: number; col: number } | null {
@@ -160,11 +233,22 @@ export function parseSpreadsheetContent(content: string): ParsedSpreadsheetData 
       ? parsed.colHeaders.filter((h: unknown): h is string => typeof h === 'string').slice(0, colCount)
       : [];
 
+    const data = normalizeGrid(parsed?.data, rowCount, colCount);
+    const colHeaders = headers.length === colCount ? headers : generateHeaders(colCount);
+    const colWidths = normalizeColWidths(parsed?.colWidths, colCount);
+    const rowHeights = normalizeRowHeights(parsed?.rowHeights, rowCount);
+    const merges = normalizeMerges(parsed?.merges, rowCount, colCount);
+    const cellFills = normalizeCellFills(parsed?.cellFills);
+
     return {
-      data: normalizeGrid(parsed?.data, rowCount, colCount),
+      data,
       rowCount,
       colCount,
-      colHeaders: headers.length === colCount ? headers : generateHeaders(colCount),
+      colHeaders,
+      ...(colWidths.length > 0 && { colWidths }),
+      ...(rowHeights.length > 0 && { rowHeights }),
+      ...(merges.length > 0 && { merges }),
+      ...(Object.keys(cellFills).length > 0 && { cellFills }),
     };
   } catch {
     return {
@@ -175,3 +259,5 @@ export function parseSpreadsheetContent(content: string): ParsedSpreadsheetData 
     };
   }
 }
+
+export { DEFAULT_COL_WIDTH, DEFAULT_ROW_HEIGHT };

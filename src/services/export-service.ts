@@ -14,7 +14,7 @@ export async function exportDocument(document: Document, format: ExportFormat): 
 
   if (format === 'xlsx' && document.type === 'spreadsheet') {
     const sheetData = JSON.parse(document.content) as SpreadsheetData;
-    await exportToXlsx(sheetData.data, document.name);
+    await exportToXlsx(sheetData, document.name);
     return;
   }
 

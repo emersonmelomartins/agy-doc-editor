@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Editor } from '@tiptap/react';
 import {
   AlignCenter,
@@ -22,12 +22,16 @@ import {
   Undo,
   Upload,
 } from 'lucide-react';
+import { parseTextContent } from '@/utils/text-content';
+import { useComponentsStore } from '@/store/components-store';
 import styles from '@/components/text-editor.module.css';
 import ToolbarIconButton from './toolbar-icon-button';
 
 type TextEditorToolbarProps = {
   editor: Editor;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  /** When false, hide the "Inserir componente" dropdown (e.g. inside component form modal). Default true. */
+  showComponentInsert?: boolean;
 };
 
 type ToolbarAction = {
@@ -57,7 +61,29 @@ function renderActions(actions: ToolbarAction[]) {
   ));
 }
 
-export default function TextEditorToolbar({ editor, fileInputRef }: TextEditorToolbarProps) {
+export default function TextEditorToolbar({ editor, fileInputRef, showComponentInsert = true }: TextEditorToolbarProps) {
+  const components = useComponentsStore((s) => s.components);
+  const loadComponents = useComponentsStore((s) => s.loadComponents);
+  const getComponent = useComponentsStore((s) => s.getComponent);
+  const [componentId, setComponentId] = useState<string>('');
+
+  useEffect(() => {
+    if (showComponentInsert) loadComponents();
+  }, [showComponentInsert, loadComponents]);
+
+  const handleInsertComponent = () => {
+    if (!componentId) return;
+    const comp = getComponent(componentId);
+    if (!comp?.content) return;
+    try {
+      const parsed = parseTextContent(comp.content);
+      const nodes = Array.isArray(parsed.content) ? parsed.content : [];
+      if (nodes.length) editor.chain().focus().insertContent(nodes).run();
+    } catch {
+      // ignore invalid JSON
+    }
+  };
+
   const historyActions: ToolbarAction[] = [
     {
       key: 'undo',
@@ -301,6 +327,34 @@ export default function TextEditorToolbar({ editor, fileInputRef }: TextEditorTo
           }}
         />
       </div>
+
+      {showComponentInsert && (
+        <div className={styles.toolbarGroup}>
+          <select
+            className={styles.componentSelect}
+            value={componentId}
+            onChange={(e) => setComponentId(e.target.value)}
+            aria-label="Selecionar componente para inserir"
+            title="Inserir componente na posição do cursor"
+          >
+            <option value="">Componente…</option>
+            {components.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleInsertComponent}
+            disabled={!componentId}
+            title="Inserir na posição do cursor"
+          >
+            Inserir
+          </button>
+        </div>
+      )}
 
       <div className={styles.toolbarGroup}>
         <ToolbarIconButton

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Document, DocumentType } from '../types/index.ts';
+import type { Document, DocumentLayout, DocumentType } from '../types/index.ts';
 import {
   cloneDocument,
   createNewDocument as createDocumentService,
@@ -8,6 +8,7 @@ import {
   removeDocument,
   renameDocumentById as renameDocumentService,
   saveDocumentContent,
+  updateDocumentLayout as updateDocumentLayoutService,
 } from '../services/documents-service.ts';
 
 interface DocumentsState {
@@ -15,6 +16,7 @@ interface DocumentsState {
   loadDocuments: () => void;
   createNewDocument: (name: string, type: DocumentType, content: string, templateId?: string) => Document;
   updateDocumentContentById: (id: string, content: string) => void;
+  updateDocumentLayoutById: (id: string, layout: DocumentLayout | null) => void;
   renameDocumentById: (id: string, name: string) => void;
   deleteDocumentById: (id: string) => void;
   duplicateDocumentById: (id: string) => Document | null;
@@ -40,6 +42,11 @@ export const useDocumentsStore = create<DocumentsState>((set) => ({
 
   updateDocumentContentById: (id, content) => {
     saveDocumentContent(id, content);
+    refreshDocuments(set);
+  },
+
+  updateDocumentLayoutById: (id, layout) => {
+    updateDocumentLayoutService(id, layout);
     refreshDocuments(set);
   },
 

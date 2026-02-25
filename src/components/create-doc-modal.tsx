@@ -9,12 +9,14 @@ import styles from './create-doc-modal.module.css';
 interface CreateDocModalProps {
   onClose: () => void;
   onCreated: () => void;
+  /** Tipo inicial ao abrir (ex.: ao vir do empty state de Planilhas) */
+  initialType?: DocumentType;
 }
 
-export default function CreateDocModal({ onClose, onCreated }: CreateDocModalProps) {
+export default function CreateDocModal({ onClose, onCreated, initialType = 'text' }: CreateDocModalProps) {
   const navigate = useNavigate();
   const createNewDocument = useDocumentsStore((s) => s.createNewDocument);
-  const [type, setType] = useState<DocumentType>('text');
+  const [type, setType] = useState<DocumentType>(initialType);
   const [name, setName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 

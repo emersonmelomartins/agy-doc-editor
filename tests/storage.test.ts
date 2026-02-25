@@ -11,7 +11,6 @@ import {
   renameDocument,
   updateDocumentContent,
 } from '../src/lib/storage.ts';
-import { DEMO_DOCUMENTS } from '../src/lib/demo-documents.ts';
 import { setupBrowserMocks } from './helpers/browser-mocks.ts';
 
 let cleanup: (() => void) | undefined;
@@ -76,14 +75,14 @@ test('storage returns empty list when window is unavailable', () => {
   runtimeGlobal.window = originalWindow;
 });
 
-test('ensureDemoDocumentsSeeded inserts demo docs once and avoids duplicates', () => {
+test('ensureDemoDocumentsSeeded does not add demo documents when storage is empty', () => {
   ensureDemoDocumentsSeeded();
   const firstSeed = getDocuments();
-  assert.equal(firstSeed.length, DEMO_DOCUMENTS.length);
+  assert.equal(firstSeed.length, 0);
 
   ensureDemoDocumentsSeeded();
   const secondSeed = getDocuments();
-  assert.equal(secondSeed.length, DEMO_DOCUMENTS.length);
+  assert.equal(secondSeed.length, 0);
 });
 
 test('ensureDemoDocumentsSeeded recovers from malformed storage and sets seed version', () => {
@@ -91,29 +90,17 @@ test('ensureDemoDocumentsSeeded recovers from malformed storage and sets seed ve
   ensureDemoDocumentsSeeded();
 
   const docs = getDocuments();
-  assert.equal(docs.length, DEMO_DOCUMENTS.length);
-  assert.equal(localStorage.getItem('doceditor_seed_version'), 'v1');
+  assert.equal(docs.length, 0);
+  assert.equal(localStorage.getItem('doceditor_seed_version'), 'v2');
 });
 
-test('ensureDemoDocumentsSeeded appends only missing templates', () => {
-  const now = new Date().toISOString();
-  localStorage.setItem('doceditor_documents', JSON.stringify([{
-    id: 'existing-1',
-    name: DEMO_DOCUMENTS[0].name,
-    type: DEMO_DOCUMENTS[0].type,
-    content: DEMO_DOCUMENTS[0].content,
-    createdAt: now,
-    updatedAt: now,
-    templateId: DEMO_DOCUMENTS[0].templateId,
-  }]));
-
+test('ensureDemoDocumentsSeeded does not add documents to existing storage', () => {
+  const created = createDocument('My Doc', 'text', '{"type":"doc","content":[]}');
+  const countBefore = getDocuments().length;
   ensureDemoDocumentsSeeded();
   const docs = getDocuments();
-  assert.equal(docs.length, DEMO_DOCUMENTS.length);
-  assert.equal(
-    docs.filter((doc) => doc.templateId === DEMO_DOCUMENTS[0].templateId).length,
-    1
-  );
+  assert.equal(docs.length, countBefore);
+  assert.equal(getDocument(created.id)?.name, 'My Doc');
 });
 
 test('ensureDemoDocumentsSeeded is a no-op when window is unavailable', () => {
@@ -124,18 +111,4 @@ test('ensureDemoDocumentsSeeded is a no-op when window is unavailable', () => {
   assert.doesNotThrow(() => ensureDemoDocumentsSeeded());
 
   runtimeGlobal.window = originalWindow;
-});
-
-test('ensureDemoDocumentsSeeded creates fallback template ids when missing', () => {
-  const first = DEMO_DOCUMENTS[0];
-  const originalTemplateId = first.templateId;
-  (first as { templateId?: string }).templateId = undefined;
-
-  try {
-    ensureDemoDocumentsSeeded();
-    const docs = getDocuments();
-    assert.ok(docs.some((doc) => doc.templateId === 'seed-1'));
-  } finally {
-    (first as { templateId?: string }).templateId = originalTemplateId;
-  }
 });

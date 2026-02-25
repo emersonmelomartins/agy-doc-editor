@@ -1,4 +1,4 @@
-import type { Document, DocumentType } from '../types/index.ts';
+import type { Document, DocumentLayout, DocumentType } from '../types/index.ts';
 import { sortDocumentsByUpdatedAt } from '../features/documents/model.ts';
 import type { DocumentsRepository } from './documents-repository.ts';
 import { LocalStorageDocumentsRepository } from './documents-repository.ts';
@@ -32,6 +32,10 @@ export function createNewDocument(
 
 export function saveDocumentContent(id: string, content: string): void {
   documentsRepository.updateContent(id, content);
+}
+
+export function updateDocumentLayout(id: string, layout: DocumentLayout | null): void {
+  documentsRepository.updateLayout(id, layout);
 }
 
 export function renameDocumentById(id: string, name: string): void {

@@ -1,4 +1,4 @@
-import type { Document, DocumentType } from '../types/index.ts';
+import type { Document, DocumentLayout, DocumentType } from '../types/index.ts';
 import {
   createDocument,
   deleteDocument,
@@ -7,6 +7,7 @@ import {
   getDocuments,
   renameDocument,
   updateDocumentContent,
+  updateDocumentLayout,
 } from '../lib/storage.ts';
 
 export interface DocumentsRepository {
@@ -14,6 +15,7 @@ export interface DocumentsRepository {
   findById(id: string): Document | null;
   create(name: string, type: DocumentType, content: string, templateId?: string): Document;
   updateContent(id: string, content: string): void;
+  updateLayout(id: string, layout: DocumentLayout | null): void;
   rename(id: string, name: string): void;
   remove(id: string): void;
   duplicate(id: string): Document | null;
@@ -34,6 +36,10 @@ export class LocalStorageDocumentsRepository implements DocumentsRepository {
 
   updateContent(id: string, content: string): void {
     updateDocumentContent(id, content);
+  }
+
+  updateLayout(id: string, layout: DocumentLayout | null): void {
+    updateDocumentLayout(id, layout);
   }
 
   rename(id: string, name: string): void {

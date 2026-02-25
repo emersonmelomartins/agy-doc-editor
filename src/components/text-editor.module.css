@@ -31,6 +31,22 @@
   margin-right: 0;
 }
 
+.componentSelect {
+  min-width: 140px;
+  padding: 4px 8px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.componentSelect:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
 .scrollArea {
   flex: 1;
   overflow: auto;
@@ -94,11 +110,12 @@
   content: none;
 }
 
-/* Tiptap specific styles */
+/* Tiptap specific styles; font inherits from theme when not set on node */
 .editorCore :global(.ProseMirror) {
   min-height: calc(var(--page-height) - (var(--page-margin-y) * 2));
   outline: none;
   display: flow-root;
+  font-family: inherit;
 }
 
 .editorCore :global(.ProseMirror > *:last-child) {
@@ -178,6 +195,14 @@
   color: var(--text-muted);
   pointer-events: none;
   height: 0;
+}
+
+/* Consistent line-height and margins for imported and edited content */
+.editorCore :global(.ProseMirror p),
+.editorCore :global(.ProseMirror h1),
+.editorCore :global(.ProseMirror h2),
+.editorCore :global(.ProseMirror h3) {
+  line-height: 1.6;
 }
 
 .editorCore :global(h1) {

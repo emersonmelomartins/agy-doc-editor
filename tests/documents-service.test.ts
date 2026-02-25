@@ -12,7 +12,7 @@ import {
   saveDocumentContent,
   setDocumentsRepositoryForTests,
 } from '../src/services/documents-service.ts';
-import type { Document, DocumentType } from '../src/types/index.ts';
+import type { Document, DocumentLayout, DocumentType } from '../src/types/index.ts';
 import type { DocumentsRepository } from '../src/services/documents-repository.ts';
 
 class InMemoryDocumentsRepository implements DocumentsRepository {
@@ -48,6 +48,12 @@ class InMemoryDocumentsRepository implements DocumentsRepository {
     const doc = this.findById(id);
     if (!doc) return;
     doc.content = content;
+  }
+
+  updateLayout(id: string, layout: DocumentLayout | null): void {
+    const doc = this.findById(id);
+    if (!doc) return;
+    doc.layout = layout ?? undefined;
   }
 
   rename(id: string, name: string): void {

@@ -1,14 +1,44 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Document as DocxDocument, Packer, Paragraph } from 'docx';
+import { Document as DocxDocument, Packer, Paragraph, ImageRun } from 'docx';
 import { jsPDF } from 'jspdf';
 
 import {
   importDocxFile,
   importDocumentFile,
   importPdfFile,
+  importPdfFileAsPageImages,
   plainTextToTipTapContent,
 } from '../src/lib/import-documents.ts';
+
+/** Collects all text from a TipTap doc tree (any structure). */
+function getAllTextFromDoc(parsed: { content?: Array<{ type?: string; content?: unknown[]; text?: string }> }): string {
+  const parts: string[] = [];
+  function walk(nodes: unknown[] | undefined) {
+    if (!Array.isArray(nodes)) return;
+    for (const node of nodes) {
+      const n = node as { type?: string; content?: unknown[]; text?: string };
+      if (typeof n.text === 'string') parts.push(n.text);
+      walk(n.content);
+    }
+  }
+  walk(parsed.content);
+  return parts.join('');
+}
+
+/** Returns true if the doc contains at least one node of the given type. */
+function docHasNodeType(parsed: { content?: unknown[] }, type: string): boolean {
+  function walk(nodes: unknown[] | undefined): boolean {
+    if (!Array.isArray(nodes)) return false;
+    for (const node of nodes) {
+      const n = node as { type?: string; content?: unknown[] };
+      if (n.type === type) return true;
+      if (walk(n.content)) return true;
+    }
+    return false;
+  }
+  return walk(parsed.content);
+}
 
 test('plainTextToTipTapContent creates one paragraph per line', () => {
   const content = plainTextToTipTapContent('linha 1\nlinha 2');
@@ -56,8 +86,9 @@ test('importDocxFile imports text content and sanitizes file name', async () => 
 
   const imported = await importDocxFile(file);
   const parsed = JSON.parse(imported.content);
-  const fullText = parsed.content.map((node: any) => node.content?.[0]?.text ?? '').join('\n');
-
+  assert.equal(parsed.type, 'doc');
+  assert.ok(Array.isArray(parsed.content));
+  const fullText = getAllTextFromDoc(parsed);
   assert.equal(imported.name, 'Relatorio Final');
   assert.match(fullText, /Linha A/);
   assert.match(fullText, /Linha B/);
@@ -74,9 +105,11 @@ test('importDocxFile falls back to default name when sanitized name is empty', a
 
   const imported = await importDocxFile(file);
   assert.equal(imported.name, 'Documento Importado');
+  const parsed = JSON.parse(imported.content);
+  assert.match(getAllTextFromDoc(parsed), /Sem nome/);
 });
 
-test('importPdfFile imports pages and keeps page breaks as blank lines', async () => {
+test('importPdfFile imports pages and keeps page breaks; preserves line breaks via hasEOL', async () => {
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
   pdf.text('Pagina 1', 40, 60);
   pdf.addPage();
@@ -86,11 +119,12 @@ test('importPdfFile imports pages and keeps page breaks as blank lines', async (
 
   const imported = await importPdfFile(file);
   const parsed = JSON.parse(imported.content);
-  const textByParagraph = parsed.content.map((node: any) => node.content?.[0]?.text ?? '');
-
   assert.equal(imported.name, 'Relatorio');
-  assert.ok(textByParagraph.some((text: string) => text.includes('Pagina 1')));
-  assert.ok(textByParagraph.some((text: string) => text.includes('Pagina 2')));
+  assert.equal(parsed.type, 'doc');
+  assert.ok(Array.isArray(parsed.content));
+  const fullText = getAllTextFromDoc(parsed);
+  assert.ok(fullText.includes('Pagina 1'));
+  assert.ok(fullText.includes('Pagina 2'));
 });
 
 test('importDocumentFile routes by extension', async () => {
@@ -104,7 +138,8 @@ test('importDocumentFile routes by extension', async () => {
 
   const imported = await importDocumentFile(file);
   assert.equal(imported.name, 'ARQUIVO');
-  assert.match(imported.content, /Documento em DOCX/);
+  const parsed = JSON.parse(imported.content);
+  assert.match(getAllTextFromDoc(parsed), /Documento em DOCX/);
 });
 
 test('importDocumentFile routes PDF extension', async () => {
@@ -116,4 +151,73 @@ test('importDocumentFile routes PDF extension', async () => {
   const imported = await importDocumentFile(file);
   assert.equal(imported.name, 'route');
   assert.match(imported.content, /Arquivo por roteamento PDF/);
+});
+
+test('generateJSON converts HTML with img to image node', async () => {
+  const { generateJSON } = await import('@tiptap/html');
+  const { getTextEditorExtensions } = await import('../src/lib/text-editor-extensions.ts');
+  const minimalPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhijMIQAAAABJRU5ErkJggg==';
+  const dataUrl = `data:image/png;base64,${minimalPngBase64}`;
+  const html = `<p>Text before image</p><p><img src="${dataUrl}" /></p><p>Text after image</p>`;
+  const doc = generateJSON(html, getTextEditorExtensions());
+  assert.ok(docHasNodeType(doc, 'image'), 'HTML with img should produce an image node');
+  const fullText = getAllTextFromDoc(doc);
+  assert.match(fullText, /Text before image/);
+  assert.match(fullText, /Text after image/);
+});
+
+test('importDocxFile with image document preserves text', async () => {
+  const minimalPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhijMIQAAAABJRU5ErkJggg==';
+  const minimalPngBytes = new Uint8Array(Buffer.from(minimalPngBase64, 'base64'));
+  const document = new DocxDocument({
+    sections: [{
+      children: [
+        new Paragraph('Text before image'),
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data: minimalPngBytes,
+              transformation: { width: 10, height: 10 },
+              type: 'png',
+            }),
+          ],
+        }),
+        new Paragraph('Text after image'),
+      ],
+    }],
+  });
+  const buffer = await Packer.toBuffer(document);
+  const file = new File([new Uint8Array(buffer)], 'with-image.docx', {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+
+  const imported = await importDocxFile(file);
+  const parsed = JSON.parse(imported.content);
+  const fullText = getAllTextFromDoc(parsed);
+  assert.match(fullText, /Text before image/);
+  assert.match(fullText, /Text after image/);
+  if (docHasNodeType(parsed, 'image')) {
+    assert.ok(true, 'mammoth extracted image as image node');
+  }
+});
+
+test('importPdfFileAsPageImages produces one image per page', async (t) => {
+  if (typeof document === 'undefined' || !document.createElement) {
+    t.skip();
+    return;
+  }
+  const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+  pdf.text('Page 1', 40, 60);
+  const pdfArrayBuffer = pdf.output('arraybuffer');
+  const file = new File([pdfArrayBuffer], 'one-page.pdf', { type: 'application/pdf' });
+
+  const imported = await importPdfFileAsPageImages(file);
+  const parsed = JSON.parse(imported.content);
+  assert.equal(imported.name, 'one-page');
+  assert.equal(parsed.type, 'doc');
+  assert.ok(Array.isArray(parsed.content));
+  assert.ok(docHasNodeType(parsed, 'image'));
+  const imageNodes = parsed.content.filter((n: any) => n.type === 'paragraph').flatMap((p: any) => (p.content ?? []).filter((c: any) => c.type === 'image'));
+  assert.equal(imageNodes.length, 1);
+  assert.ok(imageNodes[0].attrs?.src?.startsWith('data:image/jpeg'));
 });

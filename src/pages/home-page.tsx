@@ -1,17 +1,19 @@
 import { useState, useEffect, useMemo, useDeferredValue, type ChangeEvent } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { Document } from '@/types';
-import { TEMPLATES } from '@/lib/templates';
-import { importDocumentFile } from '@/lib/import-documents';
+import { importDocumentFile, importPdfFile, importPdfFileAsPageImages } from '@/lib/import-documents';
 import { useDocumentsStore } from '@/store/documents-store';
 import { DocumentsFilter, DocumentsViewMode, filterDocuments, getDocumentsStats } from '@/features/documents/model';
 import CreateDocModal from '@/components/create-doc-modal';
+import ImportPdfModal from '@/components/import-pdf-modal';
 import DocumentCard from '@/components/document-card';
 import BrandLogo from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
-import { FileText, Sheet, Plus, Search, LayoutGrid, List, Sparkles, Upload } from 'lucide-react';
+import { FileText, Sheet, Plus, Search, LayoutGrid, List, Sparkles, Upload, LayoutTemplate } from 'lucide-react';
 import styles from '@/styles/home.module.css';
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const documents = useDocumentsStore((s) => s.documents);
   const loadDocuments = useDocumentsStore((s) => s.loadDocuments);
   const createNewDocument = useDocumentsStore((s) => s.createNewDocument);
@@ -23,7 +25,10 @@ export default function HomePage() {
   const [filter, setFilter] = useState<DocumentsFilter>('all');
   const [viewMode, setViewMode] = useState<DocumentsViewMode>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createModalInitialType, setCreateModalInitialType] = useState<'text' | 'spreadsheet'>('text');
   const [isImporting, setIsImporting] = useState(false);
+  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
+  const [showPdfImportModal, setShowPdfImportModal] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -61,6 +66,13 @@ export default function HomePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.name.toLowerCase().endsWith('.pdf')) {
+      setPendingPdfFile(file);
+      setShowPdfImportModal(true);
+      event.target.value = '';
+      return;
+    }
+
     setIsImporting(true);
     try {
       const imported = await importDocumentFile(file);
@@ -73,6 +85,33 @@ export default function HomePage() {
       setIsImporting(false);
       event.target.value = '';
     }
+  };
+
+  const handlePdfImportMode = async (mode: 'fidelity' | 'editable') => {
+    if (!pendingPdfFile) return;
+    setIsImporting(true);
+    try {
+      const imported =
+        mode === 'fidelity'
+          ? await importPdfFileAsPageImages(pendingPdfFile)
+          : await importPdfFile(pendingPdfFile);
+      createNewDocument(imported.name, 'text', imported.content, 'imported-file');
+      loadDocuments();
+      setShowPdfImportModal(false);
+      setPendingPdfFile(null);
+    } catch (error) {
+      console.error('Falha ao importar PDF:', error);
+      alert(
+        error instanceof Error ? error.message : 'Nao foi possivel importar o PDF. Verifique o arquivo.'
+      );
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handlePdfImportCancel = () => {
+    setShowPdfImportModal(false);
+    setPendingPdfFile(null);
   };
 
   return (
@@ -107,6 +146,19 @@ export default function HomePage() {
             title="Filtrar planilhas"
           >
             <Sheet size={16} /> Planilhas <span className={styles.navCount}>{stats.spreadsheet}</span>
+          </button>
+        </nav>
+
+        <nav className={styles.nav}>
+          <div className={styles.navLabel}>Configurações</div>
+          <button
+            type="button"
+            className={styles.navItem}
+            onClick={() => navigate({ to: '/componentes' })}
+            aria-label="Componentes de layout"
+            title="Capas, cabeçalhos e rodapés"
+          >
+            <LayoutTemplate size={16} /> Componentes
           </button>
         </nav>
 
@@ -172,7 +224,12 @@ export default function HomePage() {
                 aria-label="Selecionar arquivo para importação"
               />
             </label>
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button
+              onClick={() => {
+                setCreateModalInitialType('text');
+                setShowCreateModal(true);
+              }}
+            >
               <Plus size={16} /> Novo Documento
             </Button>
           </div>
@@ -185,28 +242,48 @@ export default function HomePage() {
                 <Sparkles size={40} />
               </div>
               <h2>Nenhum documento ainda</h2>
-              <p>Crie seu primeiro documento ou use um de nossos templates prontos</p>
-              <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => setShowCreateModal(true)}>
+              <p>Crie seu primeiro documento</p>
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 16 }}
+                onClick={() => {
+                  setCreateModalInitialType('text');
+                  setShowCreateModal(true);
+                }}
+              >
                 <Plus size={16} /> Criar Documento
               </button>
-
-              <div className={styles.templatePicks}>
-                <div className={styles.templatePicksLabel}>Templates rápidos</div>
-                <div className={styles.templatePicksGrid}>
-                  {TEMPLATES.map((t) => (
-                    <button key={t.id} className={styles.templatePick} onClick={() => setShowCreateModal(true)}>
-                      <span>{t.thumbnail}</span>
-                      <span>{t.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 && search ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}><Search size={32} /></div>
               <h2>Nenhum resultado</h2>
               <p>Tente pesquisar com outros termos</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>
+                {filter === 'text' ? <FileText size={40} /> : <Sheet size={40} />}
+              </div>
+              <h2>
+                {filter === 'text' ? 'Nenhum documento de texto' : 'Nenhuma planilha'}
+              </h2>
+              <p>
+                {filter === 'text'
+                  ? 'Crie seu primeiro documento de texto'
+                  : 'Crie sua primeira planilha'}
+              </p>
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 16 }}
+                onClick={() => {
+                  setCreateModalInitialType(filter === 'spreadsheet' ? 'spreadsheet' : 'text');
+                  setShowCreateModal(true);
+                }}
+              >
+                <Plus size={16} />
+                {filter === 'text' ? 'Criar Documento' : 'Criar Planilha'}
+              </button>
             </div>
           ) : (
             <div className={viewMode === 'grid' ? styles.grid : styles.listView}>
@@ -232,11 +309,21 @@ export default function HomePage() {
 
       {showCreateModal && (
         <CreateDocModal
+          initialType={createModalInitialType}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             loadDocuments();
             setShowCreateModal(false);
           }}
+        />
+      )}
+
+      {showPdfImportModal && pendingPdfFile && (
+        <ImportPdfModal
+          file={pendingPdfFile}
+          onChoose={handlePdfImportMode}
+          onCancel={handlePdfImportCancel}
+          isImporting={isImporting}
         />
       )}
     </div>

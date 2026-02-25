@@ -319,6 +319,10 @@ body {
   animation: slideUp 0.25s ease both;
 }
 
+.modal.modal-lg {
+  max-width: 620px;
+}
+
 .modal-header {
   padding: 24px 24px 0;
   display: flex;

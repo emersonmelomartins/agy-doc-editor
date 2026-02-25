@@ -206,11 +206,10 @@ const manualCompletoContent = {
   ],
 };
 
-export const DEMO_DOCUMENTS: SeedDocument[] = [
-  {
-    name: 'Manual de Demonstracao (paginacao e imagens)',
-    type: 'text',
-    content: JSON.stringify(manualCompletoContent),
-    templateId: 'demo-manual-completo',
-  },
-];
+/** Returns the demo manual content as JSON string for use as a creation template. */
+export function getDemoManualContent(): string {
+  return JSON.stringify(manualCompletoContent);
+}
+
+/** Empty: demo documents are no longer auto-seeded; use the template "Manual de Demonstração" instead. */
+export const DEMO_DOCUMENTS: SeedDocument[] = [];

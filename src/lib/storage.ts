@@ -1,4 +1,4 @@
-import type { Document, DocumentType } from '../types/index.ts';
+import type { Document, DocumentLayout, DocumentType } from '../types/index.ts';
 import { v4 as uuidv4 } from 'uuid';
 import { DEMO_DOCUMENTS } from './demo-documents.ts';
 
@@ -98,6 +98,15 @@ export function updateDocumentContent(id: string, content: string): void {
   const doc = getDocument(id);
   if (doc) {
     doc.content = content;
+    doc.updatedAt = new Date().toISOString();
+    saveDocument(doc);
+  }
+}
+
+export function updateDocumentLayout(id: string, layout: DocumentLayout | null): void {
+  const doc = getDocument(id);
+  if (doc) {
+    doc.layout = layout ?? undefined;
     doc.updatedAt = new Date().toISOString();
     saveDocument(doc);
   }

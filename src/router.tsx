@@ -34,7 +34,13 @@ const editorRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/editor-page')),
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, editorRoute]);
+const componentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/componentes',
+  component: lazyRouteComponent(() => import('@/pages/components-page')),
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, editorRoute, componentsRoute]);
 
 export const router = createRouter({
   routeTree,
