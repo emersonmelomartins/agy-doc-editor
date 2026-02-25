@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import type { LayoutComponent } from '@/types';
 import { useComponentsStore } from '@/store/components-store';
 import { ArrowLeft, Plus, Pencil, Trash2, FileText } from 'lucide-react';
-import styles from '@/styles/editor.module.css';
+import styles from './editor-shell.module.css';
 import componentsPageStyles from './components-page.module.css';
 import ComponentFormModal from '@/components/component-form-modal';
 

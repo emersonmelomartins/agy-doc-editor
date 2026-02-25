@@ -14,7 +14,7 @@ import {
   Printer,
   Loader2,
 } from 'lucide-react';
-import styles from '@/styles/editor.module.css';
+import styles from './editor-shell.module.css';
 
 import TextEditor from '@/components/text-editor';
 import SpreadsheetEditor from '@/components/spreadsheet-editor';

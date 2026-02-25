@@ -155,3 +155,35 @@ test('parseSpreadsheetContent handles non-array rows inside data payload', () =>
   assert.deepEqual(parsed.data[0], [null, null]);
   assert.deepEqual(parsed.data[1], [2, 3]);
 });
+
+test('parseSpreadsheetContent normalizes widths, heights, merges and cell fills', () => {
+  const parsed = parseSpreadsheetContent(
+    JSON.stringify({
+      data: [[1, 2], [3, 4]],
+      rowCount: 2,
+      colCount: 2,
+      colHeaders: ['A', 'B'],
+      colWidths: [20, 500],
+      rowHeights: [10, 500],
+      merges: [
+        { startRow: 0, startCol: 0, endRow: 0, endCol: 0 },
+        { startRow: -1, startCol: 0, endRow: 4, endCol: 4 },
+        { bad: true },
+      ],
+      cellFills: {
+        '0,0': ' #ff0000 ',
+        '1,1': 'rgb(0, 0, 0)',
+        'x,y': '#123456',
+        '1,2': '',
+      },
+    })
+  );
+
+  assert.deepEqual(parsed.colWidths, [100, 400]);
+  assert.deepEqual(parsed.rowHeights, [28, 200]);
+  assert.deepEqual(parsed.merges, [{ startRow: 0, startCol: 0, endRow: 1, endCol: 1 }]);
+  assert.deepEqual(parsed.cellFills, {
+    '0,0': '#ff0000',
+    '1,1': 'rgb(0, 0, 0)',
+  });
+});

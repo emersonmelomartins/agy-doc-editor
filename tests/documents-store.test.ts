@@ -36,10 +36,12 @@ test('documents store updates, duplicates and deletes', () => {
 
   store.renameDocumentById(created.id, 'Doc New');
   store.updateDocumentContentById(created.id, '{"type":"doc","content":[{"type":"paragraph"}]}');
+  store.updateDocumentLayoutById(created.id, { footer: '{"type":"doc","content":[]}' });
 
   const updated = store.findDocumentById(created.id);
   assert.equal(updated?.name, 'Doc New');
   assert.match(updated?.content ?? '', /paragraph/);
+  assert.equal(updated?.layout?.footer, '{"type":"doc","content":[]}');
 
   const copy = store.duplicateDocumentById(created.id);
   assert.ok(copy);

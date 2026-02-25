@@ -1,11 +1,71 @@
-import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
-
 type TipTapNode = {
   type: string;
   attrs?: Record<string, unknown>;
   content?: TipTapNode[];
   text?: string;
 };
+
+type PdfJsWithWorkerOptions = {
+  GlobalWorkerOptions: { workerSrc: string };
+};
+
+type ImportDocumentsDeps = {
+  loadPdfWorkerUrl: () => Promise<string | null>;
+  loadPdfJs: () => Promise<PdfJsWithWorkerOptions & { getDocument: (options: unknown) => { promise: Promise<any> } }>;
+  loadMammoth: () => Promise<any>;
+  loadTiptapHtml: () => Promise<{ generateJSON: (html: string, extensions: unknown[]) => TipTapNode }>;
+  loadTextEditorExtensions: () => Promise<{ getTextEditorExtensions: () => unknown[] }>;
+};
+
+const defaultImportDocumentsDeps: ImportDocumentsDeps = {
+  loadPdfWorkerUrl: async () => {
+    const workerModule = (await import('pdfjs-dist/legacy/build/pdf.worker.mjs?url')) as {
+      default: string;
+    };
+    return workerModule.default;
+  },
+  loadPdfJs: async () => (
+    await import('pdfjs-dist/legacy/build/pdf.mjs')
+  ) as PdfJsWithWorkerOptions & { getDocument: (options: unknown) => { promise: Promise<any> } },
+  loadMammoth: async () => import('mammoth/mammoth.browser.js'),
+  loadTiptapHtml: async () => import('@tiptap/html'),
+  loadTextEditorExtensions: async () => import('./text-editor-extensions.ts'),
+};
+
+let importDocumentsDeps: ImportDocumentsDeps = defaultImportDocumentsDeps;
+let cachedPdfWorkerUrl: string | null | undefined;
+
+export function setImportDocumentsDepsForTests(overrides: Partial<ImportDocumentsDeps>): void {
+  importDocumentsDeps = { ...importDocumentsDeps, ...overrides };
+  cachedPdfWorkerUrl = undefined;
+}
+
+export function resetImportDocumentsDepsForTests(): void {
+  importDocumentsDeps = defaultImportDocumentsDeps;
+  cachedPdfWorkerUrl = undefined;
+}
+
+async function resolvePdfWorkerUrl(): Promise<string | null> {
+  if (cachedPdfWorkerUrl !== undefined) {
+    return cachedPdfWorkerUrl;
+  }
+
+  try {
+    const workerUrl = await importDocumentsDeps.loadPdfWorkerUrl();
+    cachedPdfWorkerUrl = typeof workerUrl === 'string' ? workerUrl : null;
+  } catch {
+    cachedPdfWorkerUrl = null;
+  }
+
+  return cachedPdfWorkerUrl;
+}
+
+async function configurePdfWorker(pdfjs: PdfJsWithWorkerOptions): Promise<void> {
+  const workerUrl = await resolvePdfWorkerUrl();
+  if (workerUrl) {
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  }
+}
 
 function buildParagraph(text: string): TipTapNode {
   if (!text.trim()) {
@@ -46,7 +106,8 @@ function sanitizeHtmlSpacing(html: string): string {
         .split(';')
         .map((part: string) => part.trim())
         .filter((part: string) => {
-          const key = part.split(':')[0]?.trim().toLowerCase() ?? '';
+          const [rawKey = ''] = part.split(':');
+          const key = rawKey.trim().toLowerCase();
           return (
             key !== 'line-height' &&
             key !== 'margin' &&
@@ -69,6 +130,7 @@ function normalizeTableFirstRowAsHeader(doc: { content?: TipTapNode[] }): void {
   const nodes = doc.content;
   if (!Array.isArray(nodes)) return;
   for (const node of nodes) {
+    if (!node) continue;
     if (node.type === 'table' && Array.isArray(node.content) && node.content.length > 0) {
       const firstRow = node.content[0];
       if (firstRow?.type === 'tableRow' && Array.isArray(firstRow.content)) {
@@ -82,6 +144,45 @@ function normalizeTableFirstRowAsHeader(doc: { content?: TipTapNode[] }): void {
   }
 }
 
+function nodeHasEditableText(node: TipTapNode | undefined): boolean {
+  if (!node) return false;
+  if (node.type === 'text' && typeof node.text === 'string' && node.text.trim().length > 0) {
+    return true;
+  }
+  if (!Array.isArray(node.content)) return false;
+  return node.content.some((child) => nodeHasEditableText(child));
+}
+
+function docHasEditableText(nodes: Array<TipTapNode | null | undefined>): boolean {
+  return nodes.some((node) => nodeHasEditableText(node ?? undefined));
+}
+
+function nodeContainsImage(node: TipTapNode | undefined): boolean {
+  if (!node) return false;
+  if (node.type === 'image') return true;
+  if (!Array.isArray(node.content)) return false;
+  return node.content.some((child) => nodeContainsImage(child));
+}
+
+function extractTopLevelImageBlocks(nodes: TipTapNode[]): TipTapNode[] {
+  return nodes.filter((node) => nodeContainsImage(node));
+}
+
+function docContainsImages(nodes: Array<TipTapNode | null | undefined>): boolean {
+  return nodes.some((node) => nodeContainsImage(node ?? undefined));
+}
+
+function buildDocxEditableFallbackContent(rawText: string, imageBlocks: TipTapNode[]): string {
+  const parsedFallback = JSON.parse(plainTextToTipTapContent(rawText)) as {
+    type: 'doc';
+    content: TipTapNode[];
+  };
+  if (imageBlocks.length > 0) {
+    parsedFallback.content.push(...imageBlocks);
+  }
+  return JSON.stringify(parsedFallback);
+}
+
 /**
  * Import DOCX via mammoth (HTML) then TipTap JSON.
  * Limitations: Word TOC (sumário) is not converted as a clickable index; page breaks are not
@@ -89,9 +190,9 @@ function normalizeTableFirstRowAsHeader(doc: { content?: TipTapNode[] }): void {
  * convertToHtml can preserve fonts when mammoth exposes style names.
  */
 export async function importDocxFile(file: File): Promise<{ name: string; content: string }> {
-  const mammoth = await import('mammoth/mammoth.browser.js');
-  const { generateJSON } = await import('@tiptap/html');
-  const { getTextEditorExtensions } = await import('@/lib/text-editor-extensions');
+  const mammoth = await importDocumentsDeps.loadMammoth();
+  const { generateJSON } = await importDocumentsDeps.loadTiptapHtml();
+  const { getTextEditorExtensions } = await importDocumentsDeps.loadTextEditorExtensions();
   const arrayBuffer = await file.arrayBuffer();
   const name = sanitizeImportedName(file.name);
 
@@ -111,6 +212,19 @@ export async function importDocxFile(file: File): Promise<{ name: string; conten
     const extensions = getTextEditorExtensions();
     const doc = generateJSON(html, extensions);
     normalizeTableFirstRowAsHeader(doc);
+    const docContent = Array.isArray(doc.content) ? doc.content : [];
+
+    if (!docHasEditableText(docContent) && docContainsImages(docContent)) {
+      const extracted = await mammoth.extractRawText({ arrayBuffer });
+      const rawText = typeof extracted?.value === 'string' ? extracted.value : '';
+      if (rawText.trim().length > 0) {
+        return {
+          name,
+          content: buildDocxEditableFallbackContent(rawText, extractTopLevelImageBlocks(docContent)),
+        };
+      }
+    }
+
     return {
       name,
       content: JSON.stringify(doc),
@@ -147,8 +261,8 @@ export async function importPdfFile(file: File): Promise<{ name: string; content
   const name = sanitizeImportedName(file.name);
   return withPdfjsWarnSuppressed(async () => {
     try {
-      const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+      const pdfjs = await importDocumentsDeps.loadPdfJs();
+      await configurePdfWorker(pdfjs);
       const data = new Uint8Array(await file.arrayBuffer());
       const pdf = await pdfjs.getDocument({
         data,
@@ -198,8 +312,8 @@ const PDF_LARGE_DOC_PAGE_THRESHOLD = 50;
 export async function importPdfFileAsPageImages(file: File): Promise<{ name: string; content: string }> {
   const name = sanitizeImportedName(file.name);
   try {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+    const pdfjs = await importDocumentsDeps.loadPdfJs();
+    await configurePdfWorker(pdfjs);
     const data = new Uint8Array(await file.arrayBuffer());
     const pdf = await pdfjs.getDocument({
       data,

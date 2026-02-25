@@ -105,10 +105,8 @@ function collectPreviewBlocks(nodes: TipTapNode[] | undefined): TextDocumentPrev
     }
 
     const block = toTextBlock(node);
-    if (block) {
-      pushBlock(block);
-      continue;
-    }
+    pushBlock(block);
+    if (block) continue;
 
     if (node.content?.length) {
       for (const nested of collectPreviewBlocks(node.content)) {
