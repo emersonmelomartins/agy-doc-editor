@@ -64,7 +64,8 @@
   --page-gap: 12px;
   --page-margin-y: 85px;
   --page-margin-x: 105px;
-  width: var(--page-width);
+  width: min(100%, var(--page-width));
+  max-width: 100%;
   min-height: var(--page-height);
   flex-shrink: 0;
   position: relative;
@@ -116,6 +117,8 @@
   outline: none;
   display: flow-root;
   font-family: inherit;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .editorCore :global(.ProseMirror > *:last-child) {
@@ -171,6 +174,8 @@
   border-radius: 999px;
   box-shadow: var(--shadow-lg);
   animation: fadeIn 0.12s ease both;
+  max-width: calc(100vw - 12px);
+  overflow-x: auto;
 }
 
 .imageToolButton {
@@ -179,13 +184,91 @@
 }
 
 @media (max-width: 900px) {
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .toolbarGroup {
+    flex-shrink: 0;
+    padding-right: 6px;
+    margin-right: 6px;
+  }
+
+  .componentSelect {
+    min-width: 120px;
+  }
+
   .scrollArea {
-    align-items: flex-start;
-    padding: 16px 8px calc(96px + env(safe-area-inset-bottom));
+    align-items: center;
+    padding: 12px 10px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .pagedDocument {
+    --page-width: 100%;
+    --page-gap: 10px;
+    --page-margin-y: 56px;
+    --page-margin-x: clamp(14px, 5vw, 30px);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.05),
+      0 6px 18px rgba(0, 0, 0, 0.16);
+  }
+
+  .editorCore :global(.ProseMirror) {
+    font-size: 15px;
+  }
+
+  .editorCore :global(h1) {
+    font-size: 2rem;
+  }
+
+  .editorCore :global(h2) {
+    font-size: 1.7rem;
+  }
+
+  .editorCore :global(h3) {
+    font-size: 1.35rem;
+  }
+
+  .pageMarker {
+    right: 10px;
+    font-size: 10px;
+  }
+
+  .imageQuickTools {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .imageToolButton {
+    width: 32px;
+    height: 32px;
   }
 
   .scrollEndSpacer {
     height: 44px;
+  }
+}
+
+@media (max-width: 600px) {
+  .toolbar {
+    padding: 6px;
+  }
+
+  .pagedDocument {
+    --page-margin-x: 12px;
+    --page-margin-y: 44px;
+  }
+
+  .pageMarkers {
+    display: none;
   }
 }
 

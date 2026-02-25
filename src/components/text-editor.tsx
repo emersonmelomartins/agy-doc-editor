@@ -110,11 +110,12 @@ export default function TextEditor({ content, onChange }: TextEditorProps) {
     }
 
     const rect = selectedImage.getBoundingClientRect();
-    const panelWidth = 312;
-    const panelHeight = 42;
     const margin = 8;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const availableWidth = Math.max(140, viewportWidth - margin * 2);
+    const panelWidth = Math.min(312, availableWidth);
+    const panelHeight = 42;
 
     const left = Math.max(
       margin,

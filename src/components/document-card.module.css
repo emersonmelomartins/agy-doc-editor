@@ -21,6 +21,10 @@
   box-shadow: var(--shadow-lg), 0 0 12px rgba(99, 102, 241, 0.1);
 }
 
+.card:focus-within {
+  border-color: var(--primary);
+}
+
 .cardGrid {
   height: 240px;
 }
@@ -184,6 +188,14 @@
   gap: 4px;
   opacity: 0;
   transition: opacity 0.2s ease;
+  align-self: flex-end;
+}
+
+.actions :global(.btn-icon) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
 }
 
 .card:hover .actions {
@@ -204,4 +216,52 @@
   font-family: inherit;
   font-size: 14px;
   outline: none;
+}
+
+@media (max-width: 900px) {
+  .card {
+    padding: 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .cardGrid {
+    height: auto;
+    min-height: 220px;
+  }
+
+  .textPreview {
+    min-height: 120px;
+  }
+
+  .name {
+    font-size: 15px;
+  }
+
+  .meta {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .actions {
+    opacity: 1;
+  }
+
+  .actions :global(.btn-icon) {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .card:hover {
+    transform: none;
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border);
+  }
+
+  .actions {
+    opacity: 1;
+  }
 }
