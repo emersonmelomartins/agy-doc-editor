@@ -20,6 +20,8 @@
   padding: 0 20px;
   padding-top: env(safe-area-inset-top);
   flex-shrink: 0;
+  position: relative;
+  z-index: 15;
 }
 
 .headerLeft {
@@ -63,6 +65,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .inlineSpinner {
@@ -165,6 +168,9 @@
     gap: 10px;
     flex-wrap: wrap;
     align-items: flex-start;
+    position: sticky;
+    top: 0;
+    z-index: 30;
   }
 
   .headerLeft,
@@ -176,5 +182,43 @@
   .docName {
     width: 100%;
     font-size: 14px;
+  }
+
+  .docInfo {
+    flex: 1;
+  }
+
+  .headerRight {
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .headerRight :global(.btn) {
+    min-height: 38px;
+  }
+
+  .exportMenu {
+    flex: 1;
+  }
+
+  .exportMenu :global(.btn) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .menuDropdown {
+    width: min(220px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+  }
+}
+
+@media (max-width: 600px) {
+  .status {
+    gap: 3px;
+  }
+
+  .menuDropdown {
+    right: auto;
+    left: 0;
   }
 }

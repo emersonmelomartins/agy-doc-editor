@@ -207,7 +207,7 @@ export default function HomePage() {
               </button>
             </div>
             <label
-              className="btn btn-ghost"
+              className={`btn btn-ghost ${styles.importButton}`}
               style={{ cursor: 'pointer' }}
               role="button"
               aria-label={isImporting ? 'Importando arquivo' : 'Importar arquivo DOCX ou PDF'}
@@ -225,6 +225,7 @@ export default function HomePage() {
               />
             </label>
             <Button
+              className={styles.createButton}
               onClick={() => {
                 setCreateModalInitialType('text');
                 setShowCreateModal(true);

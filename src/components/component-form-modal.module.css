@@ -132,3 +132,23 @@
   border-top: 2px solid var(--border);
   margin: 0 0 1.25em 0;
 }
+
+@media (max-width: 640px) {
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .editorArea {
+    max-height: 260px;
+    padding: 0 10px 10px;
+  }
+
+  .editorInner {
+    min-height: 160px;
+  }
+
+  .editorInner :global(.ProseMirror) {
+    min-height: 150px;
+    padding: 10px 0;
+  }
+}
