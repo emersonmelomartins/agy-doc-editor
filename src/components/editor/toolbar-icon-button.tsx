@@ -23,6 +23,7 @@ export default function ToolbarIconButton({
 }: ToolbarIconButtonProps) {
   const button = (
     <button
+      type="button"
       className={`btn-icon ${active ? 'active' : ''} ${className ?? ''}`.trim()}
       onClick={onClick}
       disabled={disabled}
