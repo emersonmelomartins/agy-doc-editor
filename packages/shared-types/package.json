@@ -1,0 +1,18 @@
+{
+  "name": "@docsi/shared-types",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'no tests for shared-types'",
+    "test:coverage": "echo 'no coverage for shared-types'",
+    "lint": "echo 'no lint for shared-types'"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

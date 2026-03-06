@@ -1,5 +1,12 @@
 node_modules
-.next
-dist
+.pnpm-store
+.turbo
 coverage
-*.tsbuildinfo
+**/coverage
+**/dist
+**/.vite
+**/node_modules
+*.log
+.env
+.env.*
+!.env.example

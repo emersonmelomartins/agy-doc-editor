@@ -1,0 +1,15 @@
+{
+  "name": "@docsi/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "echo 'ui package build not required yet'",
+    "typecheck": "echo 'ui package typecheck not required yet'",
+    "test": "echo 'ui package tests not required yet'",
+    "test:coverage": "echo 'ui package coverage not required yet'",
+    "lint": "echo 'ui package lint not required yet'"
+  }
+}
