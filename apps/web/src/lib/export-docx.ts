@@ -3,7 +3,6 @@ import {
   BorderStyle,
   Document,
   HeadingLevel,
-  HighlightColor,
   ImageRun,
   LevelFormat,
   Packer,
@@ -32,7 +31,6 @@ type TipTapNode = {
 };
 
 type ListKind = 'bullet' | 'ordered';
-type DocxHighlight = (typeof HighlightColor)[keyof typeof HighlightColor];
 
 const PAGE_MARGIN_TOP_BOTTOM_TWIP = 1276; // ~85px
 const PAGE_MARGIN_LEFT_RIGHT_TWIP = 1576; // ~105px
@@ -54,20 +52,6 @@ function pickTextStyleMark(marks: TipTapMark[] | undefined): TipTapMark | undefi
 
 function pickHighlightMark(marks: TipTapMark[] | undefined): TipTapMark | undefined {
   return marks?.find((mark) => mark.type === 'highlight');
-}
-
-function mapHighlightColor(value: unknown): DocxHighlight | undefined {
-  if (typeof value !== 'string') return undefined;
-
-  const normalized = value.toLowerCase();
-  if (normalized === '#ffff00' || normalized === 'yellow') return HighlightColor.YELLOW;
-  if (normalized === '#00ff00' || normalized === 'green') return HighlightColor.GREEN;
-  if (normalized === '#00ffff' || normalized === 'cyan') return HighlightColor.CYAN;
-  if (normalized === '#ff00ff' || normalized === 'magenta') return HighlightColor.MAGENTA;
-  if (normalized === '#0000ff' || normalized === 'blue') return HighlightColor.BLUE;
-  if (normalized === '#ff0000' || normalized === 'red') return HighlightColor.RED;
-
-  return HighlightColor.YELLOW;
 }
 
 function buildTextRuns(nodes: TipTapNode[] | undefined): TextRun[] {
@@ -94,9 +78,6 @@ function buildTextRuns(nodes: TipTapNode[] | undefined): TextRun[] {
         superScript: node.marks?.some((m) => m.type === 'superscript'),
         subScript: node.marks?.some((m) => m.type === 'subscript'),
         color,
-        highlight: highlightMark
-          ? (mapHighlightColor(highlightMark.attrs?.color) ?? HighlightColor.YELLOW)
-          : undefined,
       }));
       continue;
     }
