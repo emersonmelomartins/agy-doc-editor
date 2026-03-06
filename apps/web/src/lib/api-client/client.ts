@@ -1,7 +1,26 @@
 import axios from 'axios';
 
+function resolveApiBaseUrl(): string {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    return envUrl;
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname, protocol } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://127.0.0.1:3333/api';
+    }
+    if (protocol === 'https:') {
+      return 'https://agy-doc-editor.onrender.com/api';
+    }
+  }
+
+  return 'http://127.0.0.1:3333/api';
+}
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3333/api',
+  baseURL: resolveApiBaseUrl(),
   timeout: 30000,
 });
 
