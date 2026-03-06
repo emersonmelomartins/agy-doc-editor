@@ -24,6 +24,17 @@ export const apiClient = axios.create({
   timeout: 30000,
 });
 
+function resolveApiOrigin(): string {
+  const base = apiClient.defaults.baseURL ?? '';
+  return base.endsWith('/api') ? base.slice(0, -4) : base;
+}
+
+export async function checkApiHealth(): Promise<void> {
+  const apiOrigin = resolveApiOrigin();
+  if (!apiOrigin) return;
+  await axios.get(`${apiOrigin}/health`, { timeout: 5000 });
+}
+
 export async function pushSync() {
   const response = await apiClient.post('/sync/push');
   return response.data as { enabled: boolean; data: { pushed: number; skipped: number } };

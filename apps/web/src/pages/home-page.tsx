@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useDeferredValue, type ChangeEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Document } from '@/types';
-import { importDocumentFile, importPdfFile, importPdfFileAsPageImages, plainTextToTipTapContent } from '@/lib/import-documents';
+import { importDocumentFile, importPdfFileAsPageImages, plainTextToTipTapContent } from '@/lib/import-documents';
 import { useDocumentsStore } from '@/store/documents-store';
 import { DocumentsFilter, DocumentsViewMode, filterDocuments, getDocumentsStats } from '@/features/documents/model';
-import { convertPdfToDocx, importPdfEditable } from '@/lib/api-client';
+import { checkApiHealth, convertPdfToDocx, importPdfEditable } from '@/lib/api-client';
 import CreateDocModal from '@/components/create-doc-modal';
 import ImportPdfModal from '@/components/import-pdf-modal';
 import DocumentCard from '@/components/document-card';
@@ -93,24 +93,20 @@ export default function HomePage() {
     if (!pendingPdfFile) return;
     setIsImporting(true);
     try {
+      try {
+        await checkApiHealth();
+      } catch {
+        throw new Error('Backend indisponivel no momento. Verifique a API e tente novamente.');
+      }
+
       let imported;
       if (mode === 'fidelity') {
         imported = await importPdfFileAsPageImages(pendingPdfFile);
       } else {
-        // Prefer backend extraction (Fastify + PDF.js), then LibreOffice conversion, then local parser.
+        // Backend-first flow: extraction via API, then optional DOCX conversion via API.
         let extractedText = '';
-        try {
-          const response = await importPdfEditable(pendingPdfFile);
-          extractedText = response?.data?.text?.trim() ?? '';
-        } catch (apiImportError) {
-          console.warn('PDF import via API failed. Falling back to local parser.', apiImportError);
-          imported = await importPdfFile(pendingPdfFile);
-          createNewDocument(imported.name, 'text', imported.content, 'imported-file');
-          loadDocuments();
-          setShowPdfImportModal(false);
-          setPendingPdfFile(null);
-          return;
-        }
+        const response = await importPdfEditable(pendingPdfFile);
+        extractedText = response?.data?.text?.trim() ?? '';
 
         if (extractedText.length >= 32) {
           imported = {
@@ -127,7 +123,14 @@ export default function HomePage() {
               });
               imported = await importDocumentFile(docxFile);
             } else {
-              imported = await importPdfFile(pendingPdfFile);
+              imported = {
+                name: pendingPdfFile.name.replace(/\.pdf$/i, ''),
+                content: plainTextToTipTapContent(
+                  extractedText.length > 0
+                    ? extractedText
+                    : 'Nao foi possivel extrair texto editavel deste PDF automaticamente.'
+                ),
+              };
             }
           } catch (convertError) {
             console.warn('PDF conversion/parsing fallback failed. Using extracted API text.', convertError);
