@@ -52,10 +52,10 @@ export async function buildApp(options: BuildAppOptions) {
     const asRecord = error as { code?: string; message?: string };
     const message = asRecord.message ?? '';
     const code = asRecord.code;
-    if (code === 'ENOENT' && message.includes('soffice')) {
+    if (code === 'ENOENT' && (message.includes('soffice') || message.includes('pdftoppm'))) {
       return reply.status(503).send({
-        code: 'LIBREOFFICE_NOT_INSTALLED',
-        message: 'LibreOffice (soffice) nao esta instalado no servidor. Instale para habilitar PDF->DOCX.',
+        code: 'PDF_CONVERTER_NOT_AVAILABLE',
+        message: 'Motor de conversao PDF->DOCX nao esta instalado no servidor.',
       });
     }
     return reply.status(500).send({

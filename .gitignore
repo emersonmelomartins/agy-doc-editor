@@ -7,6 +7,8 @@ coverage
 **/.vite
 **/node_modules
 *.log
+apps/api/*.traineddata
+apps/web/test-results
 .env
 .env.*
 !.env.example

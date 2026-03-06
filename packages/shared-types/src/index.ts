@@ -2,7 +2,7 @@ export type DocumentType = 'text' | 'spreadsheet';
 
 export type ImportQualityPage = {
   page: number;
-  mode: 'text' | 'ocr' | 'libreoffice-fallback';
+  mode: 'pdfjs' | 'ocr' | 'hybrid';
   confidence: number;
 };
 
@@ -11,6 +11,8 @@ export type ImportQualityReport = {
   pages: ImportQualityPage[];
   warnings: string[];
 };
+
+export type ImportSource = 'pdfjs' | 'ocr' | 'hybrid';
 
 export type DocumentLayout = {
   header?: string | null;

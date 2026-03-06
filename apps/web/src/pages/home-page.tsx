@@ -1,20 +1,20 @@
 import { useState, useEffect, useMemo, useDeferredValue, type ChangeEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Document } from '@/types';
-import { importDocumentFile, importPdfFileAsPageImages, plainTextToTipTapContent } from '@/lib/import-documents';
+import { importDocumentFile, importPdfFileAsPageImages } from '@/lib/import-documents';
 import { useDocumentsStore } from '@/store/documents-store';
 import { DocumentsFilter, DocumentsViewMode, filterDocuments, getDocumentsStats } from '@/features/documents/model';
-import { checkApiHealth, convertPdfToDocx, importPdfEditable } from '@/lib/api-client';
+import { checkApiHealth, getApiCapabilities, type ApiCapabilities } from '@/lib/api-client';
 import CreateDocModal from '@/components/create-doc-modal';
 import ImportPdfModal from '@/components/import-pdf-modal';
 import DocumentCard from '@/components/document-card';
 import BrandLogo from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { FileText, Sheet, Plus, Search, LayoutGrid, List, Sparkles, Upload, LayoutTemplate } from 'lucide-react';
+import { importEditablePdfDocxFirst } from '@/features/documents/pdf-editable-flow';
 import styles from './home-page.module.css';
 
 export default function HomePage() {
-  const enableLibreOfficeFallback = import.meta.env.VITE_ENABLE_LIBREOFFICE_FALLBACK === 'true';
   const navigate = useNavigate();
   const documents = useDocumentsStore((s) => s.documents);
   const loadDocuments = useDocumentsStore((s) => s.loadDocuments);
@@ -31,12 +31,41 @@ export default function HomePage() {
   const [isImporting, setIsImporting] = useState(false);
   const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
   const [showPdfImportModal, setShowPdfImportModal] = useState(false);
+  const [pdfApiStatus, setPdfApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [pdfApiCapabilities, setPdfApiCapabilities] = useState<ApiCapabilities | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
+
+  useEffect(() => {
+    if (!showPdfImportModal || !pendingPdfFile) return;
+
+    let cancelled = false;
+    const checkBackend = async () => {
+      setPdfApiStatus('checking');
+      setPdfApiCapabilities(null);
+      try {
+        await checkApiHealth();
+        const capabilities = await getApiCapabilities();
+        if (cancelled) return;
+        setPdfApiCapabilities(capabilities);
+        setPdfApiStatus('online');
+      } catch {
+        if (cancelled) return;
+        setPdfApiStatus('offline');
+        setPdfApiCapabilities(null);
+      }
+    };
+
+    void checkBackend();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showPdfImportModal, pendingPdfFile]);
 
   const deferredSearch = useDeferredValue(search);
   const filtered = useMemo(() => filterDocuments(documents, filter, deferredSearch), [documents, filter, deferredSearch]);
@@ -99,57 +128,26 @@ export default function HomePage() {
         throw new Error('Backend indisponivel no momento. Verifique a API e tente novamente.');
       }
 
+      const capabilities = await getApiCapabilities();
+      setPdfApiCapabilities(capabilities);
+      setPdfApiStatus('online');
+
       let imported;
       if (mode === 'fidelity') {
         imported = await importPdfFileAsPageImages(pendingPdfFile);
       } else {
-        // Backend-first flow: extraction via API, then optional DOCX conversion via API.
-        let extractedText = '';
-        const response = await importPdfEditable(pendingPdfFile);
-        extractedText = response?.data?.text?.trim() ?? '';
-
-        if (extractedText.length >= 32) {
-          imported = {
-            name: pendingPdfFile.name.replace(/\.pdf$/i, ''),
-            content: plainTextToTipTapContent(extractedText),
-          };
-        } else {
-          try {
-            if (enableLibreOfficeFallback) {
-              const docxBlob = await convertPdfToDocx(pendingPdfFile);
-              const docxName = `${pendingPdfFile.name.replace(/\.pdf$/i, '')}.docx`;
-              const docxFile = new File([docxBlob], docxName, {
-                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-              });
-              imported = await importDocumentFile(docxFile);
-            } else {
-              imported = {
-                name: pendingPdfFile.name.replace(/\.pdf$/i, ''),
-                content: plainTextToTipTapContent(
-                  extractedText.length > 0
-                    ? extractedText
-                    : 'Nao foi possivel extrair texto editavel deste PDF automaticamente.'
-                ),
-              };
-            }
-          } catch (convertError) {
-            console.warn('PDF conversion/parsing fallback failed. Using extracted API text.', convertError);
-            imported = {
-              name: pendingPdfFile.name.replace(/\.pdf$/i, ''),
-              content: plainTextToTipTapContent(
-                extractedText.length > 0
-                  ? extractedText
-                  : 'Nao foi possivel extrair texto editavel deste PDF automaticamente.'
-              ),
-            };
-          }
+        if (!capabilities.pdfToDocxAvailable) {
+          throw new Error('Conversao PDF->DOCX indisponivel no servidor. Verifique os motores de conversao da API.');
         }
+        imported = await importEditablePdfDocxFirst(pendingPdfFile);
       }
 
       createNewDocument(imported.name, 'text', imported.content, 'imported-file');
       loadDocuments();
       setShowPdfImportModal(false);
       setPendingPdfFile(null);
+      setPdfApiStatus('checking');
+      setPdfApiCapabilities(null);
     } catch (error) {
       console.error('Falha ao importar PDF:', error);
       alert(
@@ -163,6 +161,8 @@ export default function HomePage() {
   const handlePdfImportCancel = () => {
     setShowPdfImportModal(false);
     setPendingPdfFile(null);
+    setPdfApiStatus('checking');
+    setPdfApiCapabilities(null);
   };
 
   return (
@@ -376,6 +376,8 @@ export default function HomePage() {
           onChoose={handlePdfImportMode}
           onCancel={handlePdfImportCancel}
           isImporting={isImporting}
+          apiStatus={pdfApiStatus}
+          capabilities={pdfApiCapabilities}
         />
       )}
     </div>

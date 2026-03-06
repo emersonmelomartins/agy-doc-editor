@@ -25,6 +25,50 @@ Fastify API com arquitetura limpa para documentos, sincronização e conversão 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 
-## Conversão local
+## Endpoints de conversão/importação
 
-A conversão de PDF para DOCX usa `soffice --headless`. O binário deve existir no host/container.
+- `GET /health`
+- `GET /api/capabilities`
+- `POST /api/import/pdf/editable`
+- `POST /api/convert/pdf-to-docx`
+- `POST /api/ocr/image`
+
+## Contratos principais
+
+### `GET /api/capabilities`
+
+Retorna:
+
+- `pdfToDocxAvailable`
+- `ocrAvailable`
+- `pdfRasterizationAvailable`
+- versões detectadas (`libreOfficeVersion`, `tesseractVersion`, `pdftoppmVersion`)
+
+### `POST /api/import/pdf/editable`
+
+Retorna:
+
+- `data.text`
+- `data.source` (`pdfjs | ocr | hybrid`)
+- `data.qualityReport.score`
+- `data.qualityReport.pages[]` com `page`, `mode`, `confidence`
+- `data.qualityReport.warnings[]`
+
+### `POST /api/convert/pdf-to-docx`
+
+Retorna binário DOCX com:
+
+- `Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+- `Content-Disposition: attachment; filename="<name>.docx"`
+
+Erros estruturados:
+
+- `PDF_CONVERTER_NOT_AVAILABLE` (`503`)
+- `PDF_TO_DOCX_TIMEOUT` (`504`)
+- `PDF_TO_DOCX_FAILED` (`500`)
+
+## Motores usados
+
+- PDF.js para extração de texto
+- Tesseract + Poppler (`pdftoppm`) para OCR/fallback
+- LibreOffice quando aplicável

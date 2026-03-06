@@ -2,37 +2,50 @@
 
 ## Visão geral
 
-Motores usados localmente:
+O backend usa três motores locais para PDF:
 
-- LibreOffice (PDF/DOCX de alta fidelidade)
-- PDF.js (extração de texto/estrutura)
-- Tesseract (OCR local)
+- `PDF.js`: extração de texto por página.
+- `Tesseract` + `pdftoppm` (Poppler): OCR por página quando a extração do PDF.js é fraca.
+- `DOCX engine`:
+  - tenta `LibreOffice` (`soffice`) primeiro;
+  - se não houver filtro viável, faz fallback para DOCX por imagens (render de páginas via Poppler + geração DOCX local).
 
-Nenhuma API de conversão de terceiros é necessária.
+Nenhum arquivo é enviado para serviço de terceiros.
 
-## Instalação
+## Dependências por ambiente
 
 ### macOS
 
-- `brew install --cask libreoffice tesseract`
+- `brew install --cask libreoffice`
+- `brew install poppler tesseract`
 
 ### Ubuntu/Debian
 
 - `sudo apt-get update`
-- `sudo apt-get install -y libreoffice tesseract-ocr`
+- `sudo apt-get install -y libreoffice poppler-utils tesseract-ocr`
 
 ### Alpine
 
-- `apk add libreoffice tesseract-ocr`
+- `apk add libreoffice poppler-utils tesseract-ocr`
 
-## Como o backend usa
+## Endpoints e comportamento
 
-- Conversão PDF->DOCX: `soffice --headless --convert-to docx`
-- Extração PDF editável: `pdfjs-dist`
-- OCR fallback: `tesseract.js`
+- `GET /api/capabilities`
+  - retorna disponibilidade dos motores (`pdfToDocxAvailable`, `ocrAvailable`, `pdfRasterizationAvailable`) e versões detectadas.
+- `POST /api/convert/pdf-to-docx`
+  - retorna binário DOCX;
+  - erros estruturados (`PDF_CONVERTER_NOT_AVAILABLE`, `PDF_TO_DOCX_TIMEOUT`, `PDF_TO_DOCX_FAILED`).
+- `POST /api/import/pdf/editable`
+  - retorna `text`, `source` (`pdfjs|ocr|hybrid`) e `qualityReport` por página.
 
-## Controle e segurança
+## Validação rápida no host
 
-- Versões travadas no lockfile e Dockerfile
-- Execução dentro da sua infra
-- Sem envio de arquivo para terceiros
+- `soffice --version`
+- `pdftoppm -v`
+- `tesseract --version`
+- `curl http://127.0.0.1:3333/api/capabilities`
+
+## Segurança e operação
+
+- Dependências versionadas em lockfile e Dockerfile.
+- Conversão e OCR executados apenas na infraestrutura do projeto.

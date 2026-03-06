@@ -20,6 +20,7 @@
     "@fastify/swagger": "^9.5.1",
     "@fastify/swagger-ui": "^5.2.3",
     "@supabase/supabase-js": "^2.57.4",
+    "docx": "^8.5.0",
     "fastify": "^5.6.1",
     "pdfjs-dist": "^5.4.296",
     "tesseract.js": "^6.0.1",
