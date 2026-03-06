@@ -14,7 +14,16 @@ export class SupabaseSyncService {
       this.client = null;
       return;
     }
-    this.client = createClient(url, anonKey);
+    try {
+      this.client = createClient(url, anonKey);
+    } catch (error) {
+      this.client = null;
+      // Keep API boot resilient in misconfigured environments.
+      console.warn(
+        '[SupabaseSyncService] Invalid Supabase configuration. Sync disabled.',
+        error instanceof Error ? error.message : error
+      );
+    }
   }
 
   isEnabled(): boolean {
