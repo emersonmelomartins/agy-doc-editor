@@ -27,6 +27,10 @@ Monorepo com Turborepo + pnpm para editor de documentos com foco em compatibilid
 - `pnpm test`
 - `pnpm test:coverage`
 - `pnpm codegen`
+- `pnpm docker:build`
+- `pnpm docker:up`
+- `pnpm docker:down`
+- `pnpm docker:smoke`
 
 ## Variáveis de ambiente
 
@@ -51,3 +55,18 @@ A aplicação não depende de SaaS de conversão. O backend executa os motores l
 - OCR local quando necessário: Tesseract
 
 Consulte `docs/conversion-engines.md` para instalação.
+
+## Docker local (web + api)
+
+Pré-requisitos:
+
+- Docker Desktop em execução
+- porta `3333` livre (API)
+- porta `5173` livre (Web)
+
+Fluxo recomendado:
+
+1. `pnpm docker:up:build`
+2. `pnpm docker:smoke`
+3. Acessar web em `http://127.0.0.1:5173`
+4. Encerrar com `pnpm docker:down`

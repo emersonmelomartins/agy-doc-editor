@@ -45,5 +45,6 @@ O Dockerfile da API já instala os motores necessários:
 
 Use Docker Compose para rodar web+api+sqlite em ambiente fechado:
 
-- `cd infra`
-- `docker compose up --build`
+- `pnpm docker:up:build`
+- `pnpm docker:smoke`
+- `pnpm docker:down`

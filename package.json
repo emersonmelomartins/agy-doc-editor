@@ -10,7 +10,13 @@
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "codegen": "turbo run codegen"
+    "codegen": "turbo run codegen",
+    "docker:build": "docker compose -f infra/docker-compose.yml build",
+    "docker:up": "docker compose -f infra/docker-compose.yml up -d",
+    "docker:up:build": "docker compose -f infra/docker-compose.yml up -d --build",
+    "docker:down": "docker compose -f infra/docker-compose.yml down",
+    "docker:logs": "docker compose -f infra/docker-compose.yml logs -f --tail=200",
+    "docker:smoke": "bash infra/smoke-test.sh"
   },
   "devDependencies": {
     "turbo": "^2.5.6",
